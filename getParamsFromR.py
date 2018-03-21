@@ -30,6 +30,83 @@ def getLabeledPixels(semantic, target, label, show = True):
 	return output
 
 
+def construct_ply_header(len_points, alpha = False):
+	"""Generates a PLY header given a total number of 3D points and
+	coloring property if specified
+	"""
+	header = ['ply',
+			  'format ascii 1.0',
+			  'element vertex {}',
+			  'property float x',
+			  'property float y',
+			  'property float z',
+			  'property uchar red',
+			  'property uchar green',
+			  'property uchar blue',
+			  'property uchar alpha',
+			  'end_header']
+	if not alpha:
+		return '\n'.join(header[0:9] + [header[-1]]).format(len_points)
+
+	return '\n'.join(header).format(len_points)
+
+
+def points_to_string(points):
+	return '\n'.join(['{:.2f} {:.2f} {:.2f} {:.0f} {:.0f} {:.0f}'.format(*p) for p in points.tolist()])
+
+
+def save_ply(ply_file, points):
+
+	with open(ply_file, 'w') as f:
+		f.write('\n'.join([construct_ply_header(points.shape[0]), points_to_string(points)]))
+
+
+
+def getIntrinsicMatrix(cameraDict):
+
+	fx = cameraDict["intrinsic"]["fx"]
+	fy = cameraDict["intrinsic"]["fy"]
+	cx = cameraDict["intrinsic"]["u0"]
+	cy = cameraDict["intrinsic"]["v0"]
+
+	return np.matrix([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+def getExtrinsicMatrix(cameraDict):
+
+
+	x = cameraDict["extrinsic"]["x"]
+	y = cameraDict["extrinsic"]["y"]
+	z = cameraDict["extrinsic"]["z"]
+
+	pitch = cameraDict["extrinsic"]["pitch"]
+	yaw = cameraDict["extrinsic"]["yaw"]
+	roll = cameraDict["extrinsic"]["roll"]
+
+	cosP = np.cos(pitch)
+	cosY = np.cos(yaw)
+	cosR = np.cos(roll)
+	sinP = np.sin(pitch)
+	sinY = np.sin(yaw)
+	sinR = np.sin(roll)
+
+	Rt = np.identity(4)
+
+	Rt[0,0] = cosY*cosP
+	Rt[0,1] = (cosY*sinP*sinR) - (sinY*cosR)
+	Rt[0,2] = (cosY*sinP*cosR) + (sinY*sinR)
+	Rt[0,3] = x
+
+	Rt[1,0] = sinY*cosP
+	Rt[1,1] = (sinY*sinP*sinR) + (cosY*cosR)
+	Rt[1,2] = (sinY*sinP*cosR) - (cosY*sinR)
+	Rt[1,3] = y
+
+	Rt[2,0] = -sinP
+	Rt[2,1] = cosP*sinR
+	Rt[2,2] = cosP*cosR
+	Rt[2,3] = z
+
+	return Rt
 
 
 class ImgSet(object):
@@ -53,8 +130,11 @@ class ImgSet(object):
 		self.dis_suffix = "_disparity.png"
 		self.cam_suffix = "_camera.json"
 
+		self.rgb = None
 		self.semantic = None
 		self.depthImg = None
+		self.K = None
+		self.Rt = None
 
 		self.imgRecord = {}
 		self.sem_info = {}
@@ -65,7 +145,7 @@ class ImgSet(object):
 
 	def loadImages(self):
 		self.rgb = cv2.imread("\\".join([self.path, self.imagePath, self.split, self.city, self.imgName+self.rgb_suffix]))
-		self.imgRecord["rgb"] = 1
+		self.imgRecord['rgb'] = 1
 		self.semantic = cv2.imread("\\".join([self.path, self.gtFinePath, self.split, self.city, self.imgName+self.sem_suffix]))
 		self.imgRecord['semantic'] = 1
 		self.disparity = cv2.imread("\\".join([self.path, self.disparityPath, self.split, self.city, self.imgName+self.dis_suffix]), , cv2.IMREAD_GRAYSCALE)
@@ -121,6 +201,8 @@ class ImgSet(object):
 
 		with open("\\".join([self.path, self.cameraPath, self.split, self.city, self.imgName+self.cam_suffix])) as f:
 			self.camera = json.load(f)
+			self.K = getIntrinsicMatrix(self.camera)
+			self.Rt = getExtrinsicMatrix(self.camera)
 			self.camFlag = True
 			# pprint(self.camera)
 
@@ -171,9 +253,10 @@ class ImgSet(object):
 
 		self.imgRecord["depth"] = 1
 
-		return self.depthImg*255.0
+		self.depthImg *= 255.0
 
 
+	# legacy iterative method
 	def getPointCloud(self, ply_file):
 
 		assert self.camFlag == True, "Camera information not loaded"
@@ -200,24 +283,89 @@ class ImgSet(object):
 		save_ply(ply_file, points)
 
 
+	def getPointCloudMatricial(self, colourSource='semantic', max_depth=20000.0, full_transform = False, verbose = False):
 
-def save_ply(ply_file, points):
+		colourImage = None
 
-	with open(ply_file,"w") as file:
-			file.write('''ply
-		format ascii 1.0
-		element vertex %d
-		property float x
-		property float y
-		property float z
-		property uchar red
-		property uchar green
-		property uchar blue
-		property uchar alpha
-		end_header
-		%s
-		'''%(len(points),"".join(points)))
-			file.close()
+		# Warning:
+		# colourImage is pointing to the intended image, and so the latter will be deformed
+		if colourSource == 'semantic':
+			colourImage = self.semantic
+		elif colourSource == 'rgb':
+			colourImage = self.rgb
+
+		assert colourImage != None, "Invalid colour source"
+		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
+		assert self.camFlag == True, "Camera parameters not loaded"
+
+		# shape[0] is height, shape[1] is width
+
+		# Get number of pixels
+		pixel_length = colourImage.shape[1] * colourImage.shape[0]
+
+		# IMPORTANT: Order of Xs and Ys is inverted, probably to correct
+		# the inversion that results from the 2D to 3D transform
+		# (based on Carla's depth to local point cloud conversion)
+
+		# Prepare Xs in a 1D array
+		u_coords = repmat(np.r_[colourImage.shape[1]-1:-1:-1],
+						 colourImage.shape[0], 1).reshape(pixel_length)
+
+		# Prepare Ys in a 1D array
+		v_coords = repmat(np.c_[colourImage.shape[0]-1:-1:-1],
+						 1, colourImage.shape[1]).reshape(pixel_length)
+
+		# Reshape colour image into colour-trio array
+		colourImage = colourImage.reshape(pixel_length, 3)
+		# Reshape depth image
+		self.depthImage = np.reshape(self.depthImage, pixel_length)
+
+		# print depthImage.shape, u_coords.shape, v_coords.shape, colourImage.shape
+
+		# Search for pixels where the depth is greater than max_depth to
+		# delete them
+		max_depth_indexes = np.where(self.depthImage > max_depth)
+
+		self.depthImage = np.delete(self.depthImage, max_depth_indexes)
+		u_coords = np.delete(u_coords, max_depth_indexes)
+		v_coords = np.delete(v_coords, max_depth_indexes)
+		colourImage = np.delete(colourImage, max_depth_indexes, axis=0)
+
+
+		# pd2 = [u,v,1]
+		p2d = np.array([u_coords, v_coords, np.ones_like(u_coords)])
+
+		if verbose:
+			# Should have 3xN
+			print "P2D:", p2d.shape
+
+		# K-1 · list of u,v,1 gives us the 2D to 3D transform (depth still missing)
+		# P = [X,Y,Z]
+		p3d = np.dot(np.linalg.inv(self.K), p2d)
+
+		if verbose:
+			# Should still be 3xN
+			print "P3D:", p3d.shape
+			print "* Depth:", self.depthImage.shape
+
+		# element-wise multiplication to apply the depth
+		p3d = np.multiply(p3d, self.depthImage)
+
+		if verbose:
+			print "P3D after depth:", p3d.shape
+			# print p3d
+			print "concat Colour:", colourImage.shape
+
+		# Transpose into Nx3 and concatenate the colours to get Nx6
+		points = np.concatenate((p3d.T, colourImage[:,::-1]), axis = 1)
+
+
+		if verbose:
+			print points
+
+		return points
+
+
 
 
 	
@@ -256,6 +404,11 @@ def main():
 
 	# cv2.imshow('img', imgset.semantic + placeable)
 	# cv2.waitKey(0)
+
+	imgset.depthFromDisparity()
+
+	points = imgset.getPointCloudMatricial()
+	save_ply(".\\output\\"+"_".join([split, city, imgName])+".ply", points)
 
 
 if __name__ == '__main__':
