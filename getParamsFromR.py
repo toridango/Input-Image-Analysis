@@ -148,7 +148,7 @@ class ImgSet(object):
 		self.imgRecord['rgb'] = 1
 		self.semantic = cv2.imread("\\".join([self.path, self.gtFinePath, self.split, self.city, self.imgName+self.sem_suffix]))
 		self.imgRecord['semantic'] = 1
-		self.disparity = cv2.imread("\\".join([self.path, self.disparityPath, self.split, self.city, self.imgName+self.dis_suffix]), , cv2.IMREAD_GRAYSCALE)
+		self.disparity = cv2.imread("\\".join([self.path, self.disparityPath, self.split, self.city, self.imgName+self.dis_suffix]), cv2.IMREAD_GRAYSCALE)
 		self.imgRecord['disparity'] = 1
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
@@ -239,13 +239,13 @@ class ImgSet(object):
 		self.depthImg = (baseline * focal) / self.disparity
 
 		# takes care of infinites, and allows normalisation
-		for i, row in enumerate(self.depthImg):
-			for j, elem in enumerate(row):
-				if elem == np.inf:
-					self.depthImg[i,j] = 0.0
+		# for i, row in enumerate(self.depthImg):
+		# 	for j, elem in enumerate(row):
+		# 		if elem == np.inf:
+		# 			self.depthImg[i,j] = 0.0
 
 		# normalise
-		self.depthImg = self.depthImg/self.depthImg.max()
+		# self.depthImg = self.depthImg/self.depthImg.max()
 
 		if verbose:
 			cv2.imshow("img", self.depthImg)
@@ -253,7 +253,7 @@ class ImgSet(object):
 
 		self.imgRecord["depth"] = 1
 
-		self.depthImg *= 255.0
+		# self.depthImg *= 255.0
 
 
 	# legacy iterative method
@@ -294,7 +294,7 @@ class ImgSet(object):
 		elif colourSource == 'rgb':
 			colourImage = self.rgb
 
-		assert colourImage != None, "Invalid colour source"
+		assert colourImage is not None, "Invalid colour source"
 		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
 		assert self.camFlag == True, "Camera parameters not loaded"
 
@@ -318,15 +318,15 @@ class ImgSet(object):
 		# Reshape colour image into colour-trio array
 		colourImage = colourImage.reshape(pixel_length, 3)
 		# Reshape depth image
-		self.depthImage = np.reshape(self.depthImage, pixel_length)
+		self.depthImg = np.reshape(self.depthImg, pixel_length)
 
 		# print depthImage.shape, u_coords.shape, v_coords.shape, colourImage.shape
 
 		# Search for pixels where the depth is greater than max_depth to
 		# delete them
-		max_depth_indexes = np.where(self.depthImage > max_depth)
+		max_depth_indexes = np.where(self.depthImg > max_depth)
 
-		self.depthImage = np.delete(self.depthImage, max_depth_indexes)
+		self.depthImg = np.delete(self.depthImg, max_depth_indexes)
 		u_coords = np.delete(u_coords, max_depth_indexes)
 		v_coords = np.delete(v_coords, max_depth_indexes)
 		colourImage = np.delete(colourImage, max_depth_indexes, axis=0)
@@ -346,10 +346,10 @@ class ImgSet(object):
 		if verbose:
 			# Should still be 3xN
 			print "P3D:", p3d.shape
-			print "* Depth:", self.depthImage.shape
+			print "* Depth:", self.depthImg.shape
 
 		# element-wise multiplication to apply the depth
-		p3d = np.multiply(p3d, self.depthImage)
+		p3d = np.multiply(p3d, self.depthImg)
 
 		if verbose:
 			print "P3D after depth:", p3d.shape
@@ -408,7 +408,7 @@ def main():
 	imgset.depthFromDisparity()
 
 	points = imgset.getPointCloudMatricial()
-	save_ply(".\\output\\"+"_".join([split, city, imgName])+".ply", points)
+	save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
 
 if __name__ == '__main__':
