@@ -153,9 +153,17 @@ class ImgSet(object):
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
 
+	def countLabels(self):
+		pass
+
 
 
 	def getCentroidOfLabel(self, label, debug = False):
+		'''
+		Legacy function to find the centroid of the polygon
+		that corresponds to a label in the semantic segmentation
+		image
+		'''
 
 		assert label in name2label, "%r is not a cityscapes label" %label
 
@@ -340,6 +348,7 @@ class ImgSet(object):
 			print "P2D:", p2d.shape
 
 		# K-1 · list of u,v,1 gives us the 2D to 3D transform (depth still missing)
+		# shapes: 3x3 · 3xN
 		# P = [X,Y,Z]
 		p3d = np.dot(np.linalg.inv(self.K), p2d)
 
@@ -347,6 +356,9 @@ class ImgSet(object):
 			# Should still be 3xN
 			print "P3D:", p3d.shape
 			print "* Depth:", self.depthImg.shape
+
+		# Rt-1 here?
+		# raw shapes: 4x4 · 3xN  //  we want to end up with 3xN
 
 		# element-wise multiplication to apply the depth
 		p3d = np.multiply(p3d, self.depthImg)
@@ -367,6 +379,29 @@ class ImgSet(object):
 
 
 
+	def PC_to_IS(self, x, y, z):
+		'''
+		Convert from the generated point cloud coordinates
+		to International System (used later in Unity)
+		'''
+		pass
+
+
+	def IS_to_PC(self, x, y, z):
+		'''
+		Convert from International System coordinates to 
+		the ones used in the generated point cloud
+		'''
+		pass
+
+
+	def getBoundingBox(self, objectName):
+		pass
+
+
+	def assignTransform(self, objectName, orientation):
+		pass
+
 
 	
 def main():
@@ -386,29 +421,14 @@ def main():
 	imgset.loadImages()
 
 	imgset.getRoadInfo(imgset.semantic)
-	# kernel = np.ones((50,50), np.uint8)
 
-	# kernel = np.array( [[0,0,0,0,0],
-	# 					[0,0,1,0,0],
-	# 					[0,0,1,0,0],
-	# 					[0,0,1,0,0],
-	# 					[1,1,1,1,1]])
-
-	# kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (50, 50))
-
-	# roadLabel = getLabeledPixels(imgset.semantic, imgset.semantic, 'road', False)
-
-	# placeable = cv2.morphologyEx(roadLabel, cv2.MORPH_OPEN, kernel)
-
-	# placeable = cv2.erode(getLabeledPixels(placeable, placeable, 'road', False),kernel,iterations = 3)
-
-	# cv2.imshow('img', imgset.semantic + placeable)
-	# cv2.waitKey(0)
 
 	imgset.depthFromDisparity()
 
 	points = imgset.getPointCloudMatricial()
-	save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
+
+	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
+
 
 
 if __name__ == '__main__':
@@ -416,3 +436,22 @@ if __name__ == '__main__':
 
 
 	# Z (depth) = (focalLength * baseline) / disparity
+
+	'''
+	Notation for object placement
+
+	Object:
+		name
+		(allowed) labels
+		(allowed) orientations:
+			any
+			any lane
+			right lane
+			sign
+		constraints:
+			any (placement)
+			border
+			between (close to all the labels)
+		special flags:
+			driving (has to be on the right lane)
+	'''
