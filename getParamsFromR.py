@@ -3,6 +3,7 @@
 
 import sys
 sys.path.insert(0, '..\\cityscapesScripts-master\\cityscapesscripts\\helpers')
+import time
 
 import cv2
 import numpy as np
@@ -144,12 +145,18 @@ class ImgSet(object):
 
 
 	def loadImages(self):
+
 		self.rgb = cv2.imread("\\".join([self.path, self.imagePath, self.split, self.city, self.imgName+self.rgb_suffix]))
 		self.imgRecord['rgb'] = 1
+
 		self.semantic = cv2.imread("\\".join([self.path, self.gtFinePath, self.split, self.city, self.imgName+self.sem_suffix]))
 		self.imgRecord['semantic'] = 1
-		self.disparity = cv2.imread("\\".join([self.path, self.disparityPath, self.split, self.city, self.imgName+self.dis_suffix]), cv2.IMREAD_GRAYSCALE)
+
+		# It seems like the flags -1 and cv2.IMREAD_ANYDEPTH have the same effect in the end
+		# for the images being used. ANYDEPTH has been left since it should be more flexible
+		self.disparity = cv2.imread("\\".join([self.path, self.disparityPath, self.split, self.city, self.imgName+self.dis_suffix]), cv2.IMREAD_ANYDEPTH)
 		self.imgRecord['disparity'] = 1
+
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
 
@@ -239,12 +246,15 @@ class ImgSet(object):
 		# change to float to be able to save decoded values
 		self.disparity = self.disparity.astype(float)
 
+		# commenting this (below) double loop changes value 
+		# of width of closest car (jena 0) from 450 to 1.5 (aprox)
+
 		for i, row in enumerate(self.disparity):
 			for j, elem in enumerate(row):
 				if elem > 0:
-					self.disparity[i,j] = (float(elem) - 1.0) / 256.0
+					self.disparity[i,j] = (elem - 1.0) / 256.0
 
-		self.depthImg = (baseline * focal) / self.disparity
+		self.depthImg = (baseline * focal) / (self.disparity + 0.0000000001) # small value to avoid DIV 0
 
 		# takes care of infinites, and allows normalisation
 		# for i, row in enumerate(self.depthImg):
@@ -297,10 +307,11 @@ class ImgSet(object):
 
 		# Warning:
 		# colourImage is pointing to the intended image, and so the latter will be deformed
-		if colourSource == 'semantic':
-			colourImage = self.semantic
-		elif colourSource == 'rgb':
+		if colourSource == 'rgb':
 			colourImage = self.rgb
+		else:
+			colourImage = self.semantic
+
 
 		assert colourImage is not None, "Invalid colour source"
 		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
@@ -316,12 +327,10 @@ class ImgSet(object):
 		# (based on Carla's depth to local point cloud conversion)
 
 		# Prepare Xs in a 1D array
-		u_coords = repmat(np.r_[colourImage.shape[1]-1:-1:-1],
-						 colourImage.shape[0], 1).reshape(pixel_length)
+		u_coords = repmat(np.r_[colourImage.shape[1]-1:-1:-1], colourImage.shape[0], 1).reshape(pixel_length)
 
 		# Prepare Ys in a 1D array
-		v_coords = repmat(np.c_[colourImage.shape[0]-1:-1:-1],
-						 1, colourImage.shape[1]).reshape(pixel_length)
+		v_coords = repmat(np.c_[colourImage.shape[0]-1:-1:-1], 1, colourImage.shape[1]).reshape(pixel_length)
 
 		# Reshape colour image into colour-trio array
 		colourImage = colourImage.reshape(pixel_length, 3)
@@ -423,16 +432,23 @@ def main():
 	imgset.getRoadInfo(imgset.semantic)
 
 
-	imgset.depthFromDisparity()
+	imgset.depthFromDisparity(verbose = False)
 
-	points = imgset.getPointCloudMatricial()
+	''' 
+	use colourSource argument (string) to choose point coloration in the point cloud
+	default: "semantic"
+	options: "rgb"
+	'''
+	points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
-	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
+	save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
 
 
 if __name__ == '__main__':
+	start_time = time.time()
 	main()
+	print("Elapsed time: {} seconds".format(time.time() - start_time))
 
 
 	# Z (depth) = (focalLength * baseline) / disparity
