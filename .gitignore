@@ -5,6 +5,8 @@ __pycache__/
 
 # Custom
 output/
+resources/
+*.fbx
 
 # C extensions
 *.so
