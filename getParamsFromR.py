@@ -447,12 +447,13 @@ def main():
 	'''
 	points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
+	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
+	
 
 	w, h, d = getSizes(getScene(objPathDict["CC3"]))
 
 
 
-	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
 
 

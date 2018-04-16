@@ -120,13 +120,13 @@ def getSizes(scene, verbose = False):
 
 	if verbose:
 
-		print("      Max    |     Min  ")
-		print("X:  {0:<8.2f} | {1:>8.2f}".format(minX, maxX))
-		print("Y:  {0:<8.2f} | {1:>8.2f}".format(minY, maxY))
-		print("Z:  {0:<8.2f} | {1:>8.2f}".format(minZ, maxZ))
+		print("      Min    |     Max  ")
+		print("X:  {0: <8.2f} | {1: >8.2f}".format(minX, maxX))
+		print("Y:  {0: <8.2f} | {1: >8.2f}".format(minY, maxY))
+		print("Z:  {0: <8.2f} | {1: >8.2f}".format(minZ, maxZ))
 
 
-		print ("Sizes: {} x {} x {}".format(width, height, depth))
+		print ("\nSizes: {0:.2f} x {1:.2f} x {2:.2f}\n".format(width, height, depth))
 
 
 
@@ -191,5 +191,4 @@ if __name__ == '__main__':
 
 	start_time = time.time()
 	main(verbose)
-	if verbose:
-		print("Elapsed time: {} seconds".format(time.time() - start_time))
+	print("Elapsed time: {} seconds".format(time.time() - start_time))
