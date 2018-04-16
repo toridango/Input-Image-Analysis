@@ -13,7 +13,9 @@ import json
 from labels import *
 from pprint import pprint
 
+from fbxAnalyser import *
 
+# k-d tree example https://github.com/tsoding/kdtree-in-python/blob/master/main.py
 
 CTS_helpers_relPath = "\\cityscapesScripts-master\\cityscapesscripts\\helpers\\"
 
@@ -425,6 +427,10 @@ def main():
 		"gtFinePath": 'gtFine_trainvaltest\\gtFine',
 		"imagePath": 'leftImg8bit_trainvaltest\\leftImg8bit'
 	}
+
+	objPathDict = {
+		"CC3": "./resources/some_car.fbx"	
+	}
 	
 	imgset = ImgSet(split, city, imgName, pathDict)
 	imgset.loadImages()
@@ -441,7 +447,12 @@ def main():
 	'''
 	points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
-	save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
+
+	w, h, d = getSizes(getScene(objPathDict["CC3"]))
+
+
+
+	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
 
 
