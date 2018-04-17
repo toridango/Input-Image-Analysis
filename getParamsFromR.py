@@ -33,6 +33,7 @@ def getLabeledPixels(semantic, target, label, show = True):
 	return output
 
 
+
 def construct_ply_header(len_points, alpha = False):
 	"""Generates a PLY header given a total number of 3D points and
 	coloring property if specified
@@ -143,6 +144,9 @@ class ImgSet(object):
 		self.sem_info = {}
 		self.centroid = {}
 		self.camFlag = False
+		self.pointCloudSaved = False
+
+		self.pointCloud = None
 
 
 
@@ -162,7 +166,19 @@ class ImgSet(object):
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
 
-	def countLabels(self):
+
+
+	def getPointsWhereLabel(self, label):
+		assert(self.pointCloudSaved), "Calling getPointsWhereLabel without having computed the point cloud"
+		assert(label in name2label), "Label doesn't exist. Consult cityscapes label information"
+
+		colour = name2label[label].color
+		pc = np.asarray(self.pointCloud)
+
+		return pc[((pc[:,3] == colour[0])&(pc[:,4] == colour[1])&(pc[:,5] == colour[2]))]
+
+
+	def checkObjectCollision(self, placingLabels):
 		pass
 
 
@@ -214,7 +230,7 @@ class ImgSet(object):
 		
 		assert self.imgRecord['semantic'] == 1, 'Semantic Image not loaded'
 
-		self.centroid['road'] = self.getCentroidOfLabel('road')
+		# self.centroid['road'] = self.getCentroidOfLabel('road')
 
 		with open("\\".join([self.path, self.cameraPath, self.split, self.city, self.imgName+self.cam_suffix])) as f:
 			self.camera = json.load(f)
@@ -380,13 +396,25 @@ class ImgSet(object):
 			print "concat Colour:", colourImage.shape
 
 		# Transpose into Nx3 and concatenate the colours to get Nx6
-		points = np.concatenate((p3d.T, colourImage[:,::-1]), axis = 1)
+		self.pointCloud = np.concatenate((p3d.T, colourImage[:,::-1]), axis = 1)
+		self.pointCloudSaved = True
 
 
 		if verbose:
-			print points
+			print self.pointCloud
 
-		return points
+		return self.pointCloud
+
+
+	'''
+	point: (x, y)
+	sizes: (w, h, d)
+	'''
+	def collisionOnPoint(self, point, sizes):
+
+
+		pass
+
 
 
 
@@ -448,9 +476,9 @@ def main():
 	points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
 	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
-	
 
 	w, h, d = getSizes(getScene(objPathDict["CC3"]))
+
 
 
 
