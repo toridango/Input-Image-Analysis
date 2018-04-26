@@ -22,7 +22,8 @@ CTS_helpers_relPath = "\\cityscapesScripts-master\\cityscapesscripts\\helpers\\"
 
 def getLabeledPixels(semantic, target, label, show = True):
 
-	# create image with only pixels of one label
+	# find the colors within the specified boundaries and apply the mask
+	# ex: mask = cv2.inRange(image, lower, upper)
 	mask = cv2.inRange(semantic, name2label[label].color, name2label[label].color)
 	output = cv2.bitwise_and(target, target, mask = mask)
 
@@ -113,6 +114,20 @@ def getExtrinsicMatrix(cameraDict):
 	return Rt
 
 
+'''
+RGB tuple = (r, g, b)
+
+return list of labels with that colour
+'''
+def colour2labels(RGB):
+
+	if RGB == (0,0,0):
+		return None
+
+	return list(filter(lambda name: name2label[name].color == RGB, name2label))
+
+
+
 class ImgSet(object):
 
 
@@ -152,6 +167,8 @@ class ImgSet(object):
 
 	def loadImages(self):
 
+		sys.stdout.write('Reading Images for {}...'.format(self.imgName))
+
 		self.rgb = cv2.imread("\\".join([self.path, self.imagePath, self.split, self.city, self.imgName+self.rgb_suffix]))
 		self.imgRecord['rgb'] = 1
 
@@ -166,8 +183,15 @@ class ImgSet(object):
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
 
+		sys.stdout.write(' Done\n')
 
 
+	'''
+	param:
+		label - string containing label of desired points
+	returns:
+		points (in matrix form), pertaining to the targeted label
+	'''
 	def getPointsWhereLabel(self, label):
 		assert(self.pointCloudSaved), "Calling getPointsWhereLabel without having computed the point cloud"
 		assert(label in name2label), "Label doesn't exist. Consult cityscapes label information"
@@ -182,16 +206,25 @@ class ImgSet(object):
 		pass
 
 
+	'''
+		objSizes[0] = width
+				[1] = height
+				[2] = depth
 
+		labelList: list containing labels on which the object can be placed
+	'''
+	def assignPlacement(self, (width, height, depth), labelList):
+		pass
+
+
+	'''
+	Legacy function to find the centroid of the polygon
+	that corresponds to a label in the semantic segmentation
+	image
+	'''
 	def getCentroidOfLabel(self, label, debug = False):
-		'''
-		Legacy function to find the centroid of the polygon
-		that corresponds to a label in the semantic segmentation
-		image
-		'''
 
 		assert label in name2label, "%r is not a cityscapes label" %label
-
 
 		labelPix = getLabeledPixels(self.semantic, self.semantic, label, False)
 		gray = cv2.cvtColor(labelPix, cv2.COLOR_BGR2GRAY)
@@ -214,7 +247,7 @@ class ImgSet(object):
 			cv2.circle(img, (cX, cY), 7, (255, 255, 255), -1)
 			cv2.putText(img, "center", (cX - 20, cY - 20),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-		 
+
 			# show the image
 			cv2.imshow("Image", img)
 			cv2.waitKey(0)
@@ -227,7 +260,7 @@ class ImgSet(object):
 
 
 	def getRoadInfo(self, img):
-		
+
 		assert self.imgRecord['semantic'] == 1, 'Semantic Image not loaded'
 
 		# self.centroid['road'] = self.getCentroidOfLabel('road')
@@ -247,7 +280,7 @@ class ImgSet(object):
 		'''
 		disparity img info: precomputed disparity depth maps. To obtain the disparity values,
 		compute for each pixel p with p > 0: d = ( float(p) - 1. ) / 256., while a
-		value p = 0 is an invalid measurement. Warning: the images are stored as 
+		value p = 0 is an invalid measurement. Warning: the images are stored as
 		16-bit pngs, which is non-standard and not supported by all libraries.
 
 		baseline in meters
@@ -258,13 +291,15 @@ class ImgSet(object):
 		assert self.camFlag == True, "Camera information not loaded"
 		assert self.imgRecord["disparity"] == 1, "Disparity image not loaded"
 
+		sys.stdout.write('Computing depth...')
+
 		baseline = self.camera["extrinsic"]["baseline"]
 		focal = self.camera["intrinsic"]["fx"]
 
 		# change to float to be able to save decoded values
 		self.disparity = self.disparity.astype(float)
 
-		# commenting this (below) double loop changes value 
+		# commenting this (below) double loop changes value
 		# of width of closest car (jena 0) from 450 to 1.5 (aprox)
 
 		for i, row in enumerate(self.disparity):
@@ -291,6 +326,8 @@ class ImgSet(object):
 
 		# self.depthImg *= 255.0
 
+		sys.stdout.write(' Done\n')
+
 
 	# legacy iterative method
 	def getPointCloud(self, ply_file):
@@ -303,7 +340,7 @@ class ImgSet(object):
 		fy = self.camera["intrinsic"]["fy"]
 		cx = self.camera["intrinsic"]["u0"]
 		cy = self.camera["intrinsic"]["v0"]
-		
+
 		points = []
 		height = self.rgb.shape[0] # shape[0] is height, shape[1] is width
 
@@ -334,6 +371,8 @@ class ImgSet(object):
 		assert colourImage is not None, "Invalid colour source"
 		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
 		assert self.camFlag == True, "Camera parameters not loaded"
+
+		sys.stdout.write('Computing Point Cloud...')
 
 		# shape[0] is height, shape[1] is width
 
@@ -372,7 +411,7 @@ class ImgSet(object):
 
 		if verbose:
 			# Should have 3xN
-			print "P2D:", p2d.shape
+			print "\nP2D:", p2d.shape
 
 		# K-1 · list of u,v,1 gives us the 2D to 3D transform (depth still missing)
 		# shapes: 3x3 · 3xN
@@ -403,18 +442,23 @@ class ImgSet(object):
 		if verbose:
 			print self.pointCloud
 
+		sys.stdout.write(' Done\n')
+
 		return self.pointCloud
 
 
 	'''
 	point: (x, y)
 	sizes: (w, h, d)
-	'''
-	def collisionOnPoint(self, point, sizes):
 
+	exclude: list of labels to exclude from the search
+	'''
+	def objectOnPointCollides(self, point, sizes, exclude = []):
+
+		x, y = point
+		w, h, d = sizes
 
 		pass
-
 
 
 
@@ -428,7 +472,7 @@ class ImgSet(object):
 
 	def IS_to_PC(self, x, y, z):
 		'''
-		Convert from International System coordinates to 
+		Convert from International System coordinates to
 		the ones used in the generated point cloud
 		'''
 		pass
@@ -442,7 +486,7 @@ class ImgSet(object):
 		pass
 
 
-	
+
 def main():
 
 	split = 'train'
@@ -457,18 +501,18 @@ def main():
 	}
 
 	objPathDict = {
-		"CC3": "./resources/some_car.fbx"	
+		"CC3": "./resources/some_car.fbx"
 	}
-	
+
 	imgset = ImgSet(split, city, imgName, pathDict)
 	imgset.loadImages()
 
 	imgset.getRoadInfo(imgset.semantic)
 
 
-	imgset.depthFromDisparity(verbose = False)
+	imgset.depthFromDisparity()
 
-	''' 
+	'''
 	use colourSource argument (string) to choose point coloration in the point cloud
 	default: "semantic"
 	options: "rgb"
@@ -483,12 +527,10 @@ def main():
 
 
 
-
-
 if __name__ == '__main__':
 	start_time = time.time()
 	main()
-	print("Elapsed time: {} seconds".format(time.time() - start_time))
+	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
 
 	# Z (depth) = (focalLength * baseline) / disparity
