@@ -478,8 +478,33 @@ class ImgSet(object):
 		pass
 
 
-	def getBoundingBox(self, objectName):
-		pass
+	'''
+	x, y, z: point on which the object will rest
+			(centered on its x and z axes):
+	w, h, d: dimensions of bounding box
+
+	yaw: angle around y. 0 considered pointing towards positive z (not verified)
+
+	returns: box in the shape of
+			[ x_min, x_max ]
+			[ y_min, y_max ]
+			[ z_min, z_max ]
+	(coordinates in respect the camera)
+	'''
+	def getAbsoluteBoundingBox(self, (x,y,z), (w,h,d), yaw = 0, roll = 0, pitch = 0):
+		# return [[x - w/2.0, x + w/2.0],
+		# 		[    y    ,  y  +  h ],
+		# 		[z - d/2.0, z + d/2.0]]
+					# x y z
+		box =  [[], # + - -
+				[], # + - +
+				[], # + - +
+				[],
+				[],
+				[],
+				[],
+				[]]
+
 
 
 	def assignTransform(self, objectName, orientation):
