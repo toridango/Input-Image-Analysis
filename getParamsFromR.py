@@ -128,6 +128,58 @@ def colour2labels(RGB):
 
 
 
+def getRotationMatrix(yaw = 0, pitch = 0, roll = 0, rads = False):
+
+	R = np.identity(3)
+
+	if not rads:
+		roll = np.deg2rad(roll)
+		pitch = np.deg2rad(pitch)
+		yaw = np.deg2rad(yaw)
+
+	cosV = np.cos(pitch)
+	cosW = np.cos(yaw)
+	cosU = np.cos(roll)
+	sinV = np.sin(pitch)
+	sinW = np.sin(yaw)
+	sinU = np.sin(roll)
+
+	R[0,0] = cosV*cosW
+	R[0,1] = sinU*sinV*cosW - cosU*sinW
+	R[0,2] = sinU*sinW + cosU*sinV*cosW
+
+	R[1,0] = cosV*sinW
+	R[1,1] = cosU*cosW + sinU*sinV*sinW
+	R[1,2] = cosU*sinV*sinW - sinU*cosW
+
+	R[2,0] = -sinV
+	R[2,1] = sinU*cosV
+	R[2,2] = cosU*cosV
+
+	return R
+
+
+'''
+	point: [x, y, z] that rotats
+	pivot: [x, y, z] around which "point" rotates
+
+	yaw: rotation around z axis
+	pitch: rotation around y axis
+	roll: rotation around x axis
+
+	returns: rotated point
+'''
+def rotatePoint(point, pivot, yaw = 0, pitch = 0, roll = 0, rads = False):
+	point = np.matrix(point)
+	pivot = np.transpose(np.matrix(pivot))
+
+	p_prime = point - pivot
+	p_prime = getRotationMatrix(yaw, pitch, roll, rads = rads) * np.transpose(p_prime)
+	p_prime += pivot
+
+	return np.array(p_prime).flatten()
+
+
 class ImgSet(object):
 
 
@@ -486,24 +538,34 @@ class ImgSet(object):
 	yaw: angle around y. 0 considered pointing towards positive z (not verified)
 
 	returns: box in the shape of
-			[ x_min, x_max ]
-			[ y_min, y_max ]
-			[ z_min, z_max ]
-	(coordinates in respect the camera)
+	           5-------6		+y
+	          /|      /|		|  +z
+	         / |     / |		| /
+	        4-------7  |  +x ----/
+	        |  1----|--2
+	        | /   c | /
+	        0-------3
+	where c is the point (x,y,z) on which the box is being placed
+	(coordinates in respect to the camera)
 	'''
-	def getAbsoluteBoundingBox(self, (x,y,z), (w,h,d), yaw = 0, roll = 0, pitch = 0):
+	def getAbsoluteBoundingBox(self, (x,y,z), (w,h,d), yaw = 0, pitch = 0, roll = 0):
 		# return [[x - w/2.0, x + w/2.0],
 		# 		[    y    ,  y  +  h ],
 		# 		[z - d/2.0, z + d/2.0]]
-					# x y z
-		box =  [[], # + - -
-				[], # + - +
-				[], # + - +
-				[],
-				[],
-				[],
-				[],
-				[]]
+
+
+												 #    x y z
+		box =  [[x + w/2.0,     y, z - d/2.0],	 # 0  + = -
+				[x + w/2.0,     y, z + d/2.0],	 # 1  + = +
+				[x - w/2.0,     y, z + d/2.0],	 # 2  - = +
+				[x - w/2.0,     y, z - d/2.0],	 # 3  - = -
+				[x + w/2.0, y + h, z - d/2.0],	 # 4  + + -
+				[x + w/2.0, y + h, z + d/2.0],	 # 5  + + +
+				[x - w/2.0, y + h, z + d/2.0],	 # 6  - + +
+				[x - w/2.0, y + h, z - d/2.0]]	 # 7  - + -
+
+
+
 
 
 

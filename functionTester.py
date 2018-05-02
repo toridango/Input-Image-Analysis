@@ -4,7 +4,7 @@ from getParamsFromR import *
 from virtObject import *
 
 
-exhaustive = True
+quickTestsOnly = True
 
 def checkEqualList(L1, L2):
     return len(L1) == len(L2) and sorted(L1) == sorted(L2)
@@ -27,6 +27,39 @@ class TestInputAnalyser(unittest.TestCase):
                     self.assertTrue(checkEqualList(colour2labels(name2label[name].color), [name]))
                 except AssertionError:
                     print(name + " failed the test.")
+
+    def test_rotate_point(self):
+
+        cos45 = np.cos(np.deg2rad(45))
+
+        point = [0, 0, 0]
+        pivot = [0, 0, 0]
+        correct = [0, 0, 0]
+
+        rot = rotatePoint(point, pivot, yaw = 0, pitch = 0, roll = 0)
+        print rot
+        rot = list(rot)
+        self.assertTrue(checkEqualList(rot, correct))
+
+        point = [0, 2, 0]
+        pivot = [0, 0, 0]
+        correct = [cos45, 0, 0]
+
+        rot = rotatePoint(point, pivot, yaw = -45, pitch = 0, roll = 0)
+        print rot
+        rot = list(rot)
+        self.assertTrue(checkEqualList(rot, correct))
+
+        point = [0, 3, 0]
+        pivot = [0, 1, 0]
+        correct = [cos45, 1, 0]
+
+        rot = rotatePoint(point, pivot, yaw = -45, pitch = 0, roll = 0)
+        print rot
+        rot = list(rot)
+        self.assertTrue(checkEqualList(rot, correct))
+
+
 
 
 
@@ -64,7 +97,23 @@ class TestVirtObject(unittest.TestCase):
         self.assertTrue(rprism.contains((2.5,2.5,2.5)))
 
 
-    @unittest.skipIf(exhaustive == False, "Exhaustive tests are deactivated")
+    def test_wrongOrder_pointInPrism(self):
+
+        # eightpoints = [[1,1,1], [1,3,1], [3,3,1], [3,1,1], [1,1,3], [1,3,3], [3,3,3], [3,1,3]]
+        eightpoints = [[1,3,3], [3,3,3], [3,1,3], [1,1,1], [1,3,1], [3,3,1], [3,1,1], [1,1,3]]
+
+        rprism = RectPrism(eightpoints)
+
+        self.assertFalse(rprism.contains((0,0,0)))
+        self.assertFalse(rprism.contains((0.5,0.5,0.5)))
+        self.assertFalse(rprism.contains((3,3,3)))
+
+        self.assertTrue(rprism.contains((1.5,1.5,1.5)))
+        self.assertTrue(rprism.contains((2,2,2)))
+        self.assertTrue(rprism.contains((2.5,2.5,2.5)))
+
+
+    @unittest.skipIf(quickTestsOnly == True, "Exhaustive tests are deactivated")
     def test_extensive_pointInPrism(self):
 
         eightpoints = [[1,1,1], [1,3,1], [3,3,1], [3,1,1],
@@ -83,7 +132,7 @@ class TestVirtObject(unittest.TestCase):
                     else:
                         self.assertFalse(rprism1.contains((x,y,z)))
 
-    @unittest.skipIf(exhaustive == False, "Exhaustive tests are deactivated")
+    @unittest.skipIf(quickTestsOnly == True, "Exhaustive tests are deactivated")
     def test_extensive_neg_pointInPrism(self):
 
         eightpoints = [[-1,-1,-1], [-1,-3,-1], [-3,-3,-1], [-3,-1,-1],
@@ -102,6 +151,24 @@ class TestVirtObject(unittest.TestCase):
                     else:
                         self.assertFalse(rprism1.contains((x,y,z)))
 
+    @unittest.skipIf(quickTestsOnly == True, "Exhaustive tests are deactivated")
+    def test_extensive_origin_pointInPrism(self):
+
+        eightpoints = [[1,1,1], [1,-1,1], [-1,-1,1], [-1,1,1],
+                    [1,1,-1], [1,-1,-1], [-1,-1,-1], [-1,1,-1]]
+
+        rprism1 = RectPrism(eightpoints)
+
+        for i in range(-20, 20):
+            for j in range(-20, 20):
+                for k in range(-20, 20):
+                    x = i/10.0
+                    y = j/10.0
+                    z = k/10.0
+                    if (-1.0 < x < 1.0) and (-1.0 < y < 1.0) and (-1.0 < z < 1.0):
+                        self.assertTrue(rprism1.contains((x,y,z)))
+                    else:
+                        self.assertFalse(rprism1.contains((x,y,z)))
 
 
 
