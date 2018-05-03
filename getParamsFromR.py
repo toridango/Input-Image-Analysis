@@ -163,6 +163,7 @@ def getRotationMatrix(yaw = 0, pitch = 0, roll = 0, rads = False):
 	point: [x, y, z] that rotats
 	pivot: [x, y, z] around which "point" rotates
 
+	( angles in degrees. If they're in radians, set rads to True in function call )
 	yaw: rotation around z axis
 	pitch: rotation around y axis
 	roll: rotation around x axis
@@ -170,14 +171,26 @@ def getRotationMatrix(yaw = 0, pitch = 0, roll = 0, rads = False):
 	returns: rotated point
 '''
 def rotatePoint(point, pivot, yaw = 0, pitch = 0, roll = 0, rads = False):
-	point = np.matrix(point)
+	point = np.transpose(np.matrix(point))
 	pivot = np.transpose(np.matrix(pivot))
 
+
 	p_prime = point - pivot
-	p_prime = getRotationMatrix(yaw, pitch, roll, rads = rads) * np.transpose(p_prime)
+	p_prime = getRotationMatrix(yaw, pitch, roll, rads = rads) * p_prime
 	p_prime += pivot
 
+
 	return np.array(p_prime).flatten()
+
+
+def rotateBox(box, pivot, yaw = 0, pitch = 0, roll = 0):
+
+	rot = []
+
+	for i, point in enumerate(box):
+		rot.append(list(rotatePoint(point, pivot, yaw, pitch, roll)))
+
+	return rot
 
 
 class ImgSet(object):
@@ -563,6 +576,8 @@ class ImgSet(object):
 				[x + w/2.0, y + h, z + d/2.0],	 # 5  + + +
 				[x - w/2.0, y + h, z + d/2.0],	 # 6  - + +
 				[x - w/2.0, y + h, z - d/2.0]]	 # 7  - + -
+
+		rotateBox(box, yaw = 0, pitch = 0, roll = 0)
 
 
 

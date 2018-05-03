@@ -1,4 +1,5 @@
 import unittest
+import pprint
 
 from getParamsFromR import *
 from virtObject import *
@@ -8,6 +9,15 @@ quickTestsOnly = True
 
 def checkEqualList(L1, L2):
     return len(L1) == len(L2) and sorted(L1) == sorted(L2)
+
+def checkEqualFloatList(L1, L2, decimals = 5):
+    if len(L1) == len(L2):
+        diff = np.abs(np.around(L1, decimals) - np.round(L2, decimals))
+        # print diff
+        return np.count_nonzero(diff) == 0
+    else:
+        return False
+
 
 class TestInputAnalyser(unittest.TestCase):
 
@@ -30,37 +40,79 @@ class TestInputAnalyser(unittest.TestCase):
 
     def test_rotate_point(self):
 
-        cos45 = np.cos(np.deg2rad(45))
 
         point = [0, 0, 0]
         pivot = [0, 0, 0]
         correct = [0, 0, 0]
 
         rot = rotatePoint(point, pivot, yaw = 0, pitch = 0, roll = 0)
-        print rot
         rot = list(rot)
-        self.assertTrue(checkEqualList(rot, correct))
+        self.assertTrue(checkEqualFloatList(rot, correct))
 
         point = [0, 2, 0]
         pivot = [0, 0, 0]
-        correct = [cos45, 0, 0]
+        correct = [2/np.sqrt(2), 2/np.sqrt(2), 0]
 
         rot = rotatePoint(point, pivot, yaw = -45, pitch = 0, roll = 0)
-        print rot
         rot = list(rot)
-        self.assertTrue(checkEqualList(rot, correct))
+        self.assertTrue(checkEqualFloatList(rot, correct))
 
         point = [0, 3, 0]
         pivot = [0, 1, 0]
-        correct = [cos45, 1, 0]
+        correct = [2/np.sqrt(2), 2/np.sqrt(2) + 1, 0]
 
         rot = rotatePoint(point, pivot, yaw = -45, pitch = 0, roll = 0)
-        print rot
         rot = list(rot)
-        self.assertTrue(checkEqualList(rot, correct))
+        self.assertTrue(checkEqualFloatList(rot, correct))
 
 
+    def test_rotate_box(self):
 
+
+        point = [[0, 0, 0],
+                [0, 1, 0],
+                [1, 1, 0],
+                [1, 0, 0],
+                [0, 0, 1],
+                [0, 1, 1],
+                [1, 1, 1],
+                [1, 0, 1]]
+
+        correct = [[0, 0, 0],
+                [1, 0, 0],
+                [1, -1, 0],
+                [0, -1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, -1, 1],
+                [0, -1, 1]]
+
+
+        rot = rotateBox(point, np.array([0,0,0]), yaw = -90, pitch = 0, roll = 0)
+        self.assertTrue(checkEqualFloatList(rot, correct))
+
+        point = [[-1, -1, 0],
+                [-1, 1, 0],
+                [1, 1, 0],
+                [1, -1, 0],
+                [-1, -1, 1],
+                [-1, 1, 1],
+                [1, 1, 1],
+                [1, -1, 1],]
+
+        ts2 = 2/np.sqrt(2)
+
+        correct = [[-ts2, 0, 0],
+                [0, ts2, 0],
+                [ts2, 0, 0],
+                [0, -ts2, 0],
+                [-ts2, 0, 1],
+                [0, ts2, 1],
+                [ts2, 0, 1],
+                [0, -ts2, 1]]
+
+        rot = rotateBox(point, np.array([0,0,0]), yaw = -45, pitch = 0, roll = 0)
+        self.assertTrue(checkEqualFloatList(rot, correct))
 
 
 
