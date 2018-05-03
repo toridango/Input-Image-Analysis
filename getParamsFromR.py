@@ -12,6 +12,7 @@ import imutils
 import json
 from labels import *
 from pprint import pprint
+import random as rand
 
 from fbxAnalyser import *
 
@@ -19,7 +20,11 @@ from fbxAnalyser import *
 
 CTS_helpers_relPath = "\\cityscapesScripts-master\\cityscapesscripts\\helpers\\"
 
-
+'''
+semantic: semantic segmentation image
+target: image on which to apply the mask
+label: string containing the name of the cityscapes label to keep
+'''
 def getLabeledPixels(semantic, target, label, show = True):
 
 	# find the colors within the specified boundaries and apply the mask
@@ -267,19 +272,6 @@ class ImgSet(object):
 		return pc[((pc[:,3] == colour[0])&(pc[:,4] == colour[1])&(pc[:,5] == colour[2]))]
 
 
-	def checkObjectCollision(self, placingLabels):
-		pass
-
-
-	'''
-		objSizes[0] = width
-				[1] = height
-				[2] = depth
-
-		labelList: list containing labels on which the object can be placed
-	'''
-	def assignPlacement(self, (width, height, depth), labelList):
-		pass
 
 
 	'''
@@ -577,15 +569,36 @@ class ImgSet(object):
 				[x - w/2.0, y + h, z + d/2.0],	 # 6  - + +
 				[x - w/2.0, y + h, z - d/2.0]]	 # 7  - + -
 
-		rotateBox(box, yaw = 0, pitch = 0, roll = 0)
+		box = rotateBox(box, [x,y,z], yaw = 0, pitch = 0, roll = 0)
 
 
 
+	'''
+		objSizes[0] = width
+				[1] = height
+				[2] = depth
 
+		labelList: list containing labels on which the object can be placed
+	'''
+	def assignPlacement(self, (width, height, depth), labelList):
 
+		# labeled = getLabeledPixels(self.semantic, self.semantic, labelList[0])
+		print labelList[0], name2label[labelList[0]].color
+		candidateIndexes = np.where(np.all(self.pointCloud[:,3:] == name2label[labelList[0]].color, axis=1))[0]
+		low = 0
+		high = candidateIndexes.shape[0] - 1
+		approved = False
 
-	def assignTransform(self, objectName, orientation):
+		while not approved:
+			choice = int((high-low)*rand.random()+low)
+			(x,y,z) = self.pointCloud[candidateIndexes[choice],:3]
+			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 0, roll = 0)
+			# TODO check if points of other labels collide (are inside)
+			# If they aren't, approve it and return placement
+
+	def checkObjectCollision(self, placingLabel):
 		pass
+
 
 
 
@@ -624,6 +637,8 @@ def main():
 	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
 	w, h, d = getSizes(getScene(objPathDict["CC3"]))
+
+	imgset.assignPlacement((w,h,d),["road"])
 
 
 
