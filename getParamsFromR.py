@@ -15,6 +15,7 @@ from pprint import pprint
 import random as rand
 
 from fbxAnalyser import *
+from virtObject import *
 
 # k-d tree example https://github.com/tsoding/kdtree-in-python/blob/master/main.py
 
@@ -571,7 +572,34 @@ class ImgSet(object):
 
 		box = rotateBox(box, [x,y,z], yaw = 0, pitch = 0, roll = 0)
 
+		return box
 
+	'''
+	Given a list of wanted labels, it finds the points that have them and returns
+	their indices in the stored point cloud
+	'''
+	def findLabelsInPointCloud(self, labelList, verbose = False):
+
+		assert self.pointCloudSaved == True, "Invalid colour source"
+		for label in labelList:
+			assert label in name2label, "%r is not a cityscapes label" %label
+
+		if verbose:
+			print "Finding points with labels:"
+
+		candidateIndexes = np.where(np.all(self.pointCloud[:,3:] == name2label[labelList[0]].color, axis=1))[0]
+
+		if verbose:
+			print labelList[0], type(candidateIndexes), candidateIndexes.shape
+
+		for label in labelList[1:]:
+			moreCandidates = np.where(np.all(self.pointCloud[:,3:] == name2label[label].color, axis=1))[0]
+			candidateIndexes = np.concatenate((candidateIndexes, moreCandidates), axis=0)
+
+			if verbose:
+				print label, type(moreCandidates), moreCandidates.shape, "// total", type(candidateIndexes), candidateIndexes.shape
+
+		return candidateIndexes
 
 	'''
 		objSizes[0] = width
@@ -582,21 +610,30 @@ class ImgSet(object):
 	'''
 	def assignPlacement(self, (width, height, depth), labelList):
 
-		# labeled = getLabeledPixels(self.semantic, self.semantic, labelList[0])
-		print labelList[0], name2label[labelList[0]].color
-		candidateIndexes = np.where(np.all(self.pointCloud[:,3:] == name2label[labelList[0]].color, axis=1))[0]
+		assert self.pointCloudSaved == True, "Point Cloud not found"
+
+		candidateIndexes = self.findLabelsInPointCloud(labelList)
 		low = 0
 		high = candidateIndexes.shape[0] - 1
 		approved = False
 
 		while not approved:
+
+			# choose a random index of the ones with the wanted labels
 			choice = int((high-low)*rand.random()+low)
-			(x,y,z) = self.pointCloud[candidateIndexes[choice],:3]
+			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
 			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 0, roll = 0)
+			rprism = RectPrism(box)
+
+			complementaryIndices = np.delete(np.array(xrange(self.pointCloud.shape[0])), candidateIndexes)
+
 			# TODO check if points of other labels collide (are inside)
 			# If they aren't, approve it and return placement
+			approved = True
 
-	def checkObjectCollision(self, placingLabel):
+
+
+	def checkObjectCollision(self, object, complementaryIndices):
 		pass
 
 
