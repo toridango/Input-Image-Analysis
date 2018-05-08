@@ -22,9 +22,9 @@ class RectPrism(object):
         self.vertices = np.array(eightpoints)
 
         # Edges of the rectangular prism
-        self.u = self.vertices[0] - self.vertices[1]
-        self.v = self.vertices[0] - self.vertices[3]
-        self.w = self.vertices[0] - self.vertices[4]
+        self.u = self.vertices[1] - self.vertices[0]
+        self.v = self.vertices[3] - self.vertices[0]
+        self.w = self.vertices[4] - self.vertices[0]
 
     '''
     Checks if point is inside the rectangular prism. If it is exactly
@@ -34,7 +34,7 @@ class RectPrism(object):
     point is 3D point to check: (x, y, z)
 
     Note: tests suggest that this function works even if the vertices were
-    input in the wrong order
+    input in the wrong order. This can't be possible
     '''
     def contains(self, point):
 

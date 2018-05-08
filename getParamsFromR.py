@@ -559,7 +559,7 @@ class ImgSet(object):
 		# 		[    y    ,  y  +  h ],
 		# 		[z - d/2.0, z + d/2.0]]
 
-		# print x,y,z,"//",w,h,d
+		print x,y,z,"//",w,h,d
 
 												 #    x y z
 		box =  [[x + w/2.0,     y, z - d/2.0],	 # 0  + = -
@@ -607,6 +607,10 @@ class ImgSet(object):
 				[1] = height
 				[2] = depth
 
+		yaw: rotation around z axis
+		pitch: rotation around y axis
+		roll: rotation around x axis
+
 		labelList: list containing labels on which the object can be placed
 	'''
 	def assignPlacement(self, (width, height, depth), labelList, visualise = False):
@@ -623,7 +627,7 @@ class ImgSet(object):
 			# choose a random index of the ones with the wanted labels
 			choice = int((high-low)*rand.random()+low)
 			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
-			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 0, roll = 0)
+			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 45, roll = 0)
 
 
 			rprism = RectPrism(box)
@@ -646,15 +650,13 @@ class ImgSet(object):
 			if pfIndices.shape[0] == 0:
 				approved = True
 			else:
-				print "Prefilter detected something...",
+				print "Prefilter detected something..."
 				inTheBox = np.where(np.all(map(rprism.contains, self.pointCloud[complementaryIndices,:3]), axis=0))[0]
-
-				if inTheBox.shape[0] == 0:
-					print "But it's not inside"
-					approved = True
-				else:
-					print "And it's inside"
-					approved = False
+				print self.pointCloud[complementaryIndices,:3]
+				print self.pointCloud[pfIndices,:3]
+				print inTheBox.shape
+				approved = (inTheBox.shape[0] == 0)
+				print "Approved:", approved
 
 			# inTheBox = np.where(np.all(containsAny(self.pointCloud[complementaryIndices,:3]), axis=0))[0]
 
