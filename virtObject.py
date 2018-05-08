@@ -30,7 +30,7 @@ class RectPrism(object):
     Checks if point is inside the rectangular prism. If it is exactly
     on a face of the prism or outside the volume, it returns False. Otherwise,
     it returns True.
-    
+
     point is 3D point to check: (x, y, z)
 
     Note: tests suggest that this function works even if the vertices were
@@ -40,6 +40,9 @@ class RectPrism(object):
 
         if type(point) != np.ndarray:
             point = np.array(point)
+
+        if np.shape(point) != (3):
+            point = point.reshape((3))
 
         upoint = np.dot(self.u, point)
         vpoint = np.dot(self.v, point)

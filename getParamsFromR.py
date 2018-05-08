@@ -559,6 +559,7 @@ class ImgSet(object):
 		# 		[    y    ,  y  +  h ],
 		# 		[z - d/2.0, z + d/2.0]]
 
+		# print x,y,z,"//",w,h,d
 
 												 #    x y z
 		box =  [[x + w/2.0,     y, z - d/2.0],	 # 0  + = -
@@ -570,7 +571,7 @@ class ImgSet(object):
 				[x - w/2.0, y + h, z + d/2.0],	 # 6  - + +
 				[x - w/2.0, y + h, z - d/2.0]]	 # 7  - + -
 
-		box = rotateBox(box, [x,y,z], yaw = 0, pitch = 0, roll = 0)
+		box = rotateBox(box, [x,y,z], yaw = yaw, pitch = pitch, roll = roll)
 
 		return box
 
@@ -608,7 +609,7 @@ class ImgSet(object):
 
 		labelList: list containing labels on which the object can be placed
 	'''
-	def assignPlacement(self, (width, height, depth), labelList):
+	def assignPlacement(self, (width, height, depth), labelList, visualise = False):
 
 		assert self.pointCloudSaved == True, "Point Cloud not found"
 
@@ -623,14 +624,45 @@ class ImgSet(object):
 			choice = int((high-low)*rand.random()+low)
 			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
 			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 0, roll = 0)
+
+
 			rprism = RectPrism(box)
 
 			complementaryIndices = np.delete(np.array(xrange(self.pointCloud.shape[0])), candidateIndexes)
-
+			print complementaryIndices.shape,
 			# TODO check if points of other labels collide (are inside)
 			# If they aren't, approve it and return placement
-			approved = True
 
+			# containsAny = np.vectorize(rprism.contains)
+
+			# filter between maxs and mins
+			pfIndices = np.where(np.logical_and(\
+								np.logical_and(\
+								np.logical_and(x - width/2.0 < self.pointCloud[complementaryIndices,0], self.pointCloud[complementaryIndices,0] < x + width/2.0),
+								np.logical_and(y < self.pointCloud[complementaryIndices,1], self.pointCloud[complementaryIndices,1] < y + height)),
+								np.logical_and(z - depth/2.0 < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + depth)))[0]
+			print pfIndices.shape
+
+			if pfIndices.shape[0] == 0:
+				approved = True
+			else:
+				print "Prefilter detected something...",
+				inTheBox = np.where(np.all(map(rprism.contains, self.pointCloud[complementaryIndices,:3]), axis=0))[0]
+
+				if inTheBox.shape[0] == 0:
+					print "But it's not inside"
+					approved = True
+				else:
+					print "And it's inside"
+					approved = False
+
+			# inTheBox = np.where(np.all(containsAny(self.pointCloud[complementaryIndices,:3]), axis=0))[0]
+
+
+		if True:
+			for i, e in enumerate(box):
+				box[i] = e + [220, 20, 60]
+			save_ply(".\\output\\"+"pointCloud_wBox.ply", np.concatenate((self.pointCloud, np.array(box)), axis=0))
 
 
 	def checkObjectCollision(self, object, complementaryIndices):

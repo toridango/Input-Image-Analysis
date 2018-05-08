@@ -9,7 +9,7 @@ import time
 '''
 https://github.com/assimp/assimp
 
-HOW TO INSTALL (go to master folder): 
+HOW TO INSTALL (go to master folder):
 cmake CMakeLists.txt
 Open your default IDE and build it
 
@@ -32,7 +32,7 @@ then >port>Pyassimp: python setup.py install
 
 NOW Paste DLL (maybe .lib too) in Python27\Lib\site-packages\pyassimp
 '''
-import pyassimp 
+import pyassimp
 
 
 def readFBX(filepath):
@@ -114,9 +114,10 @@ def getSizes(scene, verbose = False):
 		# if z > maxZ:
 		# 	maxZ = z
 
-	width = maxX - minX
-	height = maxY - minY
-	depth = maxZ - minZ
+	# /100 to convert from cm to m
+	width = (maxX - minX)/100.0
+	height = (maxY - minY)/100.0
+	depth = (maxZ - minZ)/100.0
 
 	if verbose:
 
@@ -137,7 +138,7 @@ def getSizes(scene, verbose = False):
 	return width, height, depth
 
 
-def exploreNodes(node, depth = 0):	
+def exploreNodes(node, depth = 0):
 
 	for i in xrange(node.GetChildCount()):
 		nextNode = node.GetChild(i)
@@ -177,11 +178,11 @@ def useFBXLibrary(fbx_carPath):
 
 def main(verbose = False):
 	fbx_carPath = "./resources/some_car.fbx"
-	
+
 	# useFBXLibrary(fbx_carPath):
 	# readFBX(fbx_carPath)
 	getSizes(getScene(fbx_carPath), verbose = verbose)
-	
+
 
 
 
