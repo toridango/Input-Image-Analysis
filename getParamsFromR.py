@@ -613,7 +613,7 @@ class ImgSet(object):
 
 		labelList: list containing labels on which the object can be placed
 	'''
-	def assignPlacement(self, (width, height, depth), labelList, visualise = False):
+	def assignPlacement(self, (width, height, depth), labelList, visualise = True):
 
 		assert self.pointCloudSaved == True, "Point Cloud not found"
 
@@ -628,43 +628,58 @@ class ImgSet(object):
 			choice = int((high-low)*rand.random()+low)
 			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
 			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 45, roll = 0)
-
-
 			rprism = RectPrism(box)
 
 			complementaryIndices = np.delete(np.array(xrange(self.pointCloud.shape[0])), candidateIndexes)
-			print complementaryIndices.shape,
+			print "Complementary:",complementaryIndices.shape
 			# TODO check if points of other labels collide (are inside)
 			# If they aren't, approve it and return placement
 
 			# containsAny = np.vectorize(rprism.contains)
 
-			# filter between maxs and mins
-			pfIndices = np.where(np.logical_and(\
+			# filter between maxs and mins # TODO TEST THIS vs Contains
+			pfIndices = np.logical_and(\
 								np.logical_and(\
 								np.logical_and(x - width/2.0 < self.pointCloud[complementaryIndices,0], self.pointCloud[complementaryIndices,0] < x + width/2.0),
 								np.logical_and(y < self.pointCloud[complementaryIndices,1], self.pointCloud[complementaryIndices,1] < y + height)),
-								np.logical_and(z - depth/2.0 < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + depth)))[0]
-			print pfIndices.shape
+								np.logical_and(z - depth/2.0 < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + depth/2.0))
+			print "Prefilter:", pfIndices.shape
+			pfIndices = np.array(pfIndices).flatten()
+			print "Flat Prefilter:", pfIndices.shape
 
-			if pfIndices.shape[0] == 0:
+			vis = visualise
+			if vis and pfIndices.shape[0] != 0:
+				aux = box[:]
+				for i, e in enumerate(box):
+					aux[i] = e + [220, 20, 60]
+				save_ply(".\\output\\"+"prefilter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
+				vis = False
+
+			print "PC shapes: original:", self.pointCloud.shape, "// complementary", self.pointCloud[complementaryIndices].shape, "// preFilter", self.pointCloud[complementaryIndices][pfIndices].shape
+
+
+			if self.pointCloud[complementaryIndices][pfIndices].shape[0] == 0:
 				approved = True
 			else:
-				print "Prefilter detected something..."
-				inTheBox = np.where(np.all(map(rprism.contains, self.pointCloud[complementaryIndices,:3]), axis=0))[0]
-				print self.pointCloud[complementaryIndices,:3]
-				print self.pointCloud[pfIndices,:3]
-				print inTheBox.shape
+				print "Prefilter detected something..."#,self.pointCloud[complementaryIndices,:3][pfIndices]
+				inTheBox = np.where(np.any(map(rprism.contains, self.pointCloud[complementaryIndices,:3][pfIndices]), axis=0))[0]
+				# print self.pointCloud[complementaryIndices,:3]
+				# print self.pointCloud[pfIndices,:3]
+				print "Using contains:", inTheBox.shape
 				approved = (inTheBox.shape[0] == 0)
 				print "Approved:", approved
 
+			# approved = True
 			# inTheBox = np.where(np.all(containsAny(self.pointCloud[complementaryIndices,:3]), axis=0))[0]
 
 
-		if True:
+		if visualise:
 			for i, e in enumerate(box):
-				box[i] = e + [220, 20, 60]
-			save_ply(".\\output\\"+"pointCloud_wBox.ply", np.concatenate((self.pointCloud, np.array(box)), axis=0))
+				aux = box[:]
+				for i, e in enumerate(box):
+					aux[i] = e + [220, 20, 60]
+			save_ply(".\\output\\"+"pointCloud_wBox.ply", np.concatenate((self.pointCloud, np.array(aux)), axis=0))
+			save_ply(".\\output\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 
 
 	def checkObjectCollision(self, object, complementaryIndices):

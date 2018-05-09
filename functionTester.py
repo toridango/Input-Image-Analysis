@@ -149,20 +149,29 @@ class TestVirtObject(unittest.TestCase):
         self.assertTrue(rprism.contains((2.5,2.5,2.5)))
 
 
-    def test_wrongOrder_pointInPrism(self):
+    def text_pointInPrism_vs_prefilter(self):
 
-        # eightpoints = [[1,1,1], [1,3,1], [3,3,1], [3,1,1], [1,1,3], [1,3,3], [3,3,3], [3,1,3]]
-        eightpoints = [[1,3,3], [3,3,3], [3,1,3], [1,1,1], [1,3,1], [3,3,1], [3,1,1], [1,1,3]]
 
-        rprism = RectPrism(eightpoints)
+        eightpoints = [[ -3, -1,  0], [ -1, -2,  0], [  0,  0,  0], [ -2,  1,  0],
+                        [ -3, -1,  2.24], [ -1, -2,  2.24], [  0,  0,  2.24], [ -2,  1,  2.24]]
 
-        self.assertFalse(rprism.contains((0,0,0)))
-        self.assertFalse(rprism.contains((0.5,0.5,0.5)))
-        self.assertFalse(rprism.contains((3,3,3)))
+        x, y, z = -1.5, -0.5, 0
+        width, height, depth = np.sqrt(5), np.sqrt(5), np.sqrt(5) # 2.24, 2.24, 2.24
+        box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 45, roll = 0)
+        rprism = RectPrism(box)
 
-        self.assertTrue(rprism.contains((1.5,1.5,1.5)))
-        self.assertTrue(rprism.contains((2,2,2)))
-        self.assertTrue(rprism.contains((2.5,2.5,2.5)))
+        i, j, k = -0.1, 1, 1
+
+        self.assertTrue(np.logical_and(\
+						np.logical_and(\
+						np.logical_and(x - width/2.0 < i, i < x + width/2.0),
+						np.logical_and(y < j, j < y + height)),
+						np.logical_and(z - depth/2.0 < k, k < z + depth/2.0)))
+
+        self.assertFalse(rprism.contains((i,j,k)))
+
+
+
 
 
     @unittest.skipIf(quickTestsOnly == True, "Exhaustive tests are deactivated")
