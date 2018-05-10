@@ -134,71 +134,6 @@ def colour2labels(RGB):
 
 
 
-def getRotationMatrix(yaw = 0, pitch = 0, roll = 0, rads = False):
-
-	R = np.identity(3)
-
-	if not rads:
-		roll = np.deg2rad(roll)
-		pitch = np.deg2rad(pitch)
-		yaw = np.deg2rad(yaw)
-
-	cosV = np.cos(pitch)
-	cosW = np.cos(yaw)
-	cosU = np.cos(roll)
-	sinV = np.sin(pitch)
-	sinW = np.sin(yaw)
-	sinU = np.sin(roll)
-
-	R[0,0] = cosV*cosW
-	R[0,1] = sinU*sinV*cosW - cosU*sinW
-	R[0,2] = sinU*sinW + cosU*sinV*cosW
-
-	R[1,0] = cosV*sinW
-	R[1,1] = cosU*cosW + sinU*sinV*sinW
-	R[1,2] = cosU*sinV*sinW - sinU*cosW
-
-	R[2,0] = -sinV
-	R[2,1] = sinU*cosV
-	R[2,2] = cosU*cosV
-
-	return R
-
-
-'''
-	point: [x, y, z] that rotats
-	pivot: [x, y, z] around which "point" rotates
-
-	( angles in degrees. If they're in radians, set rads to True in function call )
-	yaw: rotation around z axis
-	pitch: rotation around y axis
-	roll: rotation around x axis
-
-	returns: rotated point
-'''
-def rotatePoint(point, pivot, yaw = 0, pitch = 0, roll = 0, rads = False):
-	point = np.transpose(np.matrix(point))
-	pivot = np.transpose(np.matrix(pivot))
-
-
-	p_prime = point - pivot
-	p_prime = getRotationMatrix(yaw, pitch, roll, rads = rads) * p_prime
-	p_prime += pivot
-
-
-	return np.array(p_prime).flatten()
-
-
-def rotateBox(box, pivot, yaw = 0, pitch = 0, roll = 0):
-
-	rot = []
-
-	for i, point in enumerate(box):
-		rot.append(list(rotatePoint(point, pivot, yaw, pitch, roll)))
-
-	return rot
-
-
 class ImgSet(object):
 
 
@@ -559,7 +494,7 @@ class ImgSet(object):
 		# 		[    y    ,  y  +  h ],
 		# 		[z - d/2.0, z + d/2.0]]
 
-		print x,y,z,"//",w,h,d
+		# print x,y,z,"//",w,h,d
 
 												 #    x y z
 		box =  [[x + w/2.0,     y, z - d/2.0],	 # 0  + = -
@@ -613,7 +548,7 @@ class ImgSet(object):
 
 		labelList: list containing labels on which the object can be placed
 	'''
-	def assignPlacement(self, (width, height, depth), labelList, visualise = True):
+	def assignRandomPlacement(self, (width, height, depth), labelList, yaw = 0, pitch = 0, roll = 0, verbose = False):
 
 		assert self.pointCloudSaved == True, "Point Cloud not found"
 
@@ -622,32 +557,34 @@ class ImgSet(object):
 		high = candidateIndexes.shape[0] - 1
 		approved = False
 
+		sys.stdout.write('Assigning random placement...')
+		iterations = 0
+
 		while not approved:
 
 			# choose a random index of the ones with the wanted labels
 			choice = int((high-low)*rand.random()+low)
 			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
-			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = 0, pitch = 45, roll = 0)
+			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = yaw, pitch = pitch, roll = roll)
 			rprism = RectPrism(box)
 
 			complementaryIndices = np.delete(np.array(xrange(self.pointCloud.shape[0])), candidateIndexes)
-			print "Complementary:",complementaryIndices.shape
-			# TODO check if points of other labels collide (are inside)
-			# If they aren't, approve it and return placement
 
-			# containsAny = np.vectorize(rprism.contains)
+			# taimu = time.time()
 
-			# filter between maxs and mins # TODO TEST THIS vs Contains
+			# Filter between maxs and mins (not strict)
 			pfIndices = np.logical_and(\
 								np.logical_and(\
 								np.logical_and(x - width/2.0 < self.pointCloud[complementaryIndices,0], self.pointCloud[complementaryIndices,0] < x + width/2.0),
 								np.logical_and(y < self.pointCloud[complementaryIndices,1], self.pointCloud[complementaryIndices,1] < y + height)),
 								np.logical_and(z - depth/2.0 < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + depth/2.0))
-			print "Prefilter:", pfIndices.shape
-			pfIndices = np.array(pfIndices).flatten()
-			print "Flat Prefilter:", pfIndices.shape
 
-			vis = visualise
+			# print("prefilter time: {} seconds".format(time.time() - taimu))
+
+			pfIndices = np.array(pfIndices).flatten()
+
+			# Print point cloud of box and found points in file
+			vis = verbose
 			if vis and pfIndices.shape[0] != 0:
 				aux = box[:]
 				for i, e in enumerate(box):
@@ -655,35 +592,60 @@ class ImgSet(object):
 				save_ply(".\\output\\"+"prefilter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 				vis = False
 
-			print "PC shapes: original:", self.pointCloud.shape, "// complementary", self.pointCloud[complementaryIndices].shape, "// preFilter", self.pointCloud[complementaryIndices][pfIndices].shape
+			if verbose:
+				print "Shape of preFilter", self.pointCloud[complementaryIndices][pfIndices].shape
 
 
 			if self.pointCloud[complementaryIndices][pfIndices].shape[0] == 0:
 				approved = True
 			else:
-				print "Prefilter detected something..."#,self.pointCloud[complementaryIndices,:3][pfIndices]
-				inTheBox = np.where(np.any(map(rprism.contains, self.pointCloud[complementaryIndices,:3][pfIndices]), axis=0))[0]
-				# print self.pointCloud[complementaryIndices,:3]
-				# print self.pointCloud[pfIndices,:3]
-				print "Using contains:", inTheBox.shape
+				if verbose:
+					print "Prefilter detected something..." #,self.pointCloud[complementaryIndices,:3][pfIndices]
+
+				# taimu = time.time()
+
+				# inTheBox = np.where(np.any(map(rprism.contains, self.pointCloud[complementaryIndices,:3][pfIndices]), axis=0))[0]
+				# inTheBox = np.where(np.any(np.apply_along_axis(rprism.contains, 1, self.pointCloud[complementaryIndices,:3][pfIndices])))[0]
+				inTheBox = self.checkObjectCollision(rprism, complementaryIndices, pfIndices)
+
+				# print("Strict time: {} seconds\n".format(time.time() - taimu))
+
 				approved = (inTheBox.shape[0] == 0)
-				print "Approved:", approved
+				if verbose:
+					print "Using contains:", inTheBox.shape
+					print "Approved:", approved
 
-			# approved = True
-			# inTheBox = np.where(np.all(containsAny(self.pointCloud[complementaryIndices,:3]), axis=0))[0]
+			iterations += 1
 
 
-		if visualise:
+		# Print point cloud of box and found points in file
+		if verbose:
 			for i, e in enumerate(box):
 				aux = box[:]
 				for i, e in enumerate(box):
 					aux[i] = e + [220, 20, 60]
-			save_ply(".\\output\\"+"pointCloud_wBox.ply", np.concatenate((self.pointCloud, np.array(aux)), axis=0))
 			save_ply(".\\output\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 
 
-	def checkObjectCollision(self, object, complementaryIndices):
-		pass
+		sys.stdout.write(' Done (after {} iteration(s))\n'.format(iterations))
+
+		return x, y, z, rprism
+
+
+	'''
+		object: RectPrism inside of which to check
+		complementaryIndices: Indices of points in cloud with label different than the
+								one where the object is to be placed
+		preFilterIndices: if no prefilter is done, it is set by default as an array
+								the shape of the complementaryIndices parameter
+								and filled with True values
+	'''
+	def checkObjectCollision(self, object, complementaryIndices, preFilterIndices = None):
+
+		if preFilterIndices == None:
+			preFilterIndices = np.full(complementaryIndices.shape, True)
+
+		return np.where(np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][pfIndices])))[0]
 
 
 
@@ -724,7 +686,7 @@ def main():
 
 	w, h, d = getSizes(getScene(objPathDict["CC3"]))
 
-	imgset.assignPlacement((w,h,d),["road"])
+	x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
 
 
 
