@@ -11,7 +11,6 @@ from numpy.matlib import repmat
 import imutils
 import json
 from labels import *
-from pprint import pprint
 import random as rand
 
 from fbxAnalyser import *
@@ -131,6 +130,44 @@ def colour2labels(RGB):
 		return None
 
 	return list(filter(lambda name: name2label[name].color == RGB, name2label))
+
+
+
+def savejson(filename, data):
+	with open(filename, 'w') as f:
+		json.dump(data, f, sort_keys=True, indent=4, separators=(',', ': '))
+
+
+def buildJSON(x, y, z, h):
+	data = {}
+
+	data["cameraData"] = {}
+	data["objData"] = {}
+	data["lightData"] = {}
+	data["cylinderData"] = {}
+
+	for key in data:
+		data[key]["position"] = {e: 0 for e in "xyz"}
+		data[key]["rotation"] = {e: 0 for e in "xyz"}
+		data[key]["scale"] = {e: 1 for e in "xyz"}
+
+	data["objData"]["position"]["x"] = x
+	data["objData"]["position"]["y"] = y + h/2.0
+	data["objData"]["position"]["z"] = z
+
+	data["lightData"]["rotation"]["x"] = 65.0
+	data["lightData"]["rotation"]["y"] = 38.0
+	data["lightData"]["rotation"]["z"] = -8.0
+
+	data["cylinderData"]["position"]["x"] = x
+	data["cylinderData"]["position"]["y"] = y
+	data["cylinderData"]["position"]["z"] = z
+	data["cylinderData"]["scale"]["x"] = 20
+	data["cylinderData"]["scale"]["y"] = 0.01
+	data["cylinderData"]["scale"]["z"] = 20
+
+
+	return data
 
 
 
@@ -263,7 +300,6 @@ class ImgSet(object):
 			self.K = getIntrinsicMatrix(self.camera)
 			self.Rt = getExtrinsicMatrix(self.camera)
 			self.camFlag = True
-			# pprint(self.camera)
 
 		# cv2.rectangle(self.semantic, (center[0]-100, center[1]-100), (center[0]+100, center[1]+100), (255,0,0))
 
@@ -642,15 +678,15 @@ class ImgSet(object):
 	'''
 	def checkObjectCollision(self, object, complementaryIndices, preFilterIndices = None):
 
-		if preFilterIndices == None:
+		if not len(np.shape(preFilterIndices)) > 0:
 			preFilterIndices = np.full(complementaryIndices.shape, True)
 
-		return np.where(np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][pfIndices])))[0]
+		return np.where(np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][preFilterIndices])))[0]
 
 
 
 
-def main():
+def test_on_one():
 
 	split = 'train'
 	city = 'jena'
@@ -688,13 +724,16 @@ def main():
 
 	x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
 
+	# import pprint
+	# pprint.pprint(buildJSON(x,y,z,h))
 
+	savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
 
 
 
 if __name__ == '__main__':
 	start_time = time.time()
-	main()
+	test_on_one()
 	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
 
