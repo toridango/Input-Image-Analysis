@@ -13,6 +13,7 @@ import imutils
 import json
 from labels import *
 import random as rand
+import scandir
 
 from fbxAnalyser import *
 from virtObject import *
@@ -740,10 +741,6 @@ def main():
 
 	params = readjson('params.json')
 
-	split = 'train'
-	city = 'jena'
-	imgName = 'jena_000000_000019'
-
 	pathDict = params['pathDict']
 	objPathDict = params['objPathDict']
 
@@ -751,9 +748,17 @@ def main():
 
 	for split in params['splits']:
 		for city in params['splits'][split]:
-			for root, dirs, files in os.walk('..'+'\\'+pathDict['imagePath']+'\\'+split+'\\'+city+'\\'):
-				for name in files[int(amount[0]) : int(amount[1])]:#:
-					imgName = name[:len(city)+14]
+			iterator = iter(scandir.scandir('..\\{0}\\{1}\\{2}\\'.format(pathDict['imagePath'], split, city)))
+			i = 0
+
+			while i > -1 and i < int(amount[1]):
+				try:
+					entry = iterator.next()
+				except StopIteration:
+					i = -1
+
+				if i > -1 and i >= int(amount[0]):
+					imgName = entry.name[:len(city)+14]
 
 					partial_time = time.time()
 
@@ -769,6 +774,8 @@ def main():
 					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
 
 					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
+
+				i += 1
 
 
 
