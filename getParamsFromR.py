@@ -177,6 +177,15 @@ def buildJSON(x, y, z, h):
 	return data
 
 
+def getModelInfo(fbxPath):
+
+	qTime = time.time()
+	sys.stdout.write('\tAnalysing fbx model ...')
+	w, h, d = getSizes(getScene(fbxPath))
+	sys.stdout.write(' {}s\n'.format(time.time() - qTime))
+	return w, h, d
+
+
 
 class ImgSet(object):
 
@@ -217,6 +226,7 @@ class ImgSet(object):
 
 	def loadImages(self):
 
+		qTime = time.time()
 		sys.stdout.write('Reading Images for {}...'.format(self.imgName))
 
 		self.rgb = cv2.imread("\\".join([self.path, self.imagePath, self.split, self.city, self.imgName+self.rgb_suffix]))
@@ -233,7 +243,7 @@ class ImgSet(object):
 		# cv2.imshow('img', self.disparity)
 		# cv2.waitKey(0)
 
-		sys.stdout.write(' Done\n')
+		sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 
 
 	'''
@@ -327,6 +337,7 @@ class ImgSet(object):
 		assert self.camFlag == True, "Camera information not loaded"
 		assert self.imgRecord["disparity"] == 1, "Disparity image not loaded"
 
+		qTime = time.time()
 		sys.stdout.write('\tComputing depth...')
 
 		baseline = self.camera["extrinsic"]["baseline"]
@@ -362,7 +373,7 @@ class ImgSet(object):
 
 		# self.depthImg *= 255.0
 
-		sys.stdout.write(' Done\n')
+		sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 
 
 	# legacy iterative method
@@ -408,6 +419,7 @@ class ImgSet(object):
 		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
 		assert self.camFlag == True, "Camera parameters not loaded"
 
+		qTime = time.time()
 		sys.stdout.write('\tComputing Point Cloud...')
 
 		# shape[0] is height, shape[1] is width
@@ -478,7 +490,7 @@ class ImgSet(object):
 		if verbose:
 			print self.pointCloud
 
-		sys.stdout.write(' Done\n')
+		sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 
 		return self.pointCloud
 
@@ -497,21 +509,6 @@ class ImgSet(object):
 		pass
 
 
-
-	def PC_to_IS(self, x, y, z):
-		'''
-		Convert from the generated point cloud coordinates
-		to International System (used later in Unity)
-		'''
-		pass
-
-
-	def IS_to_PC(self, x, y, z):
-		'''
-		Convert from International System coordinates to
-		the ones used in the generated point cloud
-		'''
-		pass
 
 
 	'''
@@ -600,6 +597,7 @@ class ImgSet(object):
 		high = candidateIndexes.shape[0] - 1
 		approved = False
 
+		qTime = time.time()
 		sys.stdout.write('\tAssigning random placement...')
 		iterations = 0
 
@@ -670,7 +668,7 @@ class ImgSet(object):
 			save_ply(".\\output\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 
 
-		sys.stdout.write(' Done (after {} iteration(s))\n'.format(iterations))
+		sys.stdout.write(' {}s (after {} iteration(s))\n'.format(time.time()-qTime, iterations))
 
 		return x, y, z, rprism
 
@@ -768,7 +766,7 @@ def main():
 					imgset.depthFromDisparity()
 
 					points = imgset.getPointCloudMatricial(colourSource = "semantic")
-					w, h, d = getSizes(getScene(objPathDict["CC3"]))
+					w, h, d = getModelInfo(objPathDict["CC3"])
 					x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
 
 					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))

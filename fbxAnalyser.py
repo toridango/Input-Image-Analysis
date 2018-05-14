@@ -5,6 +5,7 @@
 import codecs
 import numpy as np
 import time
+import sys
 
 '''
 https://github.com/assimp/assimp
@@ -69,7 +70,6 @@ def challenge(challenger, champion, comp):
 
 
 def getSizes(scene, verbose = False):
-
 
 	if verbose:
 		print("Meshes")
