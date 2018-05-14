@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 sys.path.insert(0, '..\\cityscapesScripts-master\\cityscapesscripts\\helpers')
 import time
@@ -132,10 +133,15 @@ def colour2labels(RGB):
 	return list(filter(lambda name: name2label[name].color == RGB, name2label))
 
 
+def readjson(filepath):
+	with open(filepath, 'r') as f:
+		data = json.load(f)
+	return data
 
-def savejson(filename, data):
-	with open(filename, 'w') as f:
+def savejson(filepath, data):
+	with open(filepath, 'w') as f:
 		json.dump(data, f, sort_keys=True, indent=4, separators=(',', ': '))
+
 
 
 def buildJSON(x, y, z, h):
@@ -320,7 +326,7 @@ class ImgSet(object):
 		assert self.camFlag == True, "Camera information not loaded"
 		assert self.imgRecord["disparity"] == 1, "Disparity image not loaded"
 
-		sys.stdout.write('Computing depth...')
+		sys.stdout.write('\tComputing depth...')
 
 		baseline = self.camera["extrinsic"]["baseline"]
 		focal = self.camera["intrinsic"]["fx"]
@@ -401,7 +407,7 @@ class ImgSet(object):
 		assert self.imgRecord["depth"] == 1, "Depth image not obtained"
 		assert self.camFlag == True, "Camera parameters not loaded"
 
-		sys.stdout.write('Computing Point Cloud...')
+		sys.stdout.write('\tComputing Point Cloud...')
 
 		# shape[0] is height, shape[1] is width
 
@@ -593,7 +599,7 @@ class ImgSet(object):
 		high = candidateIndexes.shape[0] - 1
 		approved = False
 
-		sys.stdout.write('Assigning random placement...')
+		sys.stdout.write('\tAssigning random placement...')
 		iterations = 0
 
 		while not approved:
@@ -730,10 +736,47 @@ def test_on_one():
 	savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
 
 
+def main():
+
+	params = readjson('params.json')
+
+	split = 'train'
+	city = 'jena'
+	imgName = 'jena_000000_000019'
+
+	pathDict = params['pathDict']
+	objPathDict = params['objPathDict']
+
+	amount = params['amountPerCity'].split(":")
+
+	for split in params['splits']:
+		for city in params['splits'][split]:
+			for root, dirs, files in os.walk('..'+'\\'+pathDict['imagePath']+'\\'+split+'\\'+city+'\\'):
+				for name in files[int(amount[0]) : int(amount[1])]:#:
+					imgName = name[:len(city)+14]
+
+					partial_time = time.time()
+
+					imgset = ImgSet(split, city, imgName, pathDict)
+					imgset.loadImages()
+					imgset.getRoadInfo(imgset.semantic)
+					imgset.depthFromDisparity()
+
+					points = imgset.getPointCloudMatricial(colourSource = "semantic")
+					w, h, d = getSizes(getScene(objPathDict["CC3"]))
+					x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
+
+					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
+
+					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
+
+
 
 if __name__ == '__main__':
+
 	start_time = time.time()
-	test_on_one()
+	# test_on_one()
+	main()
 	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
 
