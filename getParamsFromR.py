@@ -159,7 +159,7 @@ def buildJSON(x, y, z, h):
 		data[key]["scale"] = {e: 1 for e in "xyz"}
 
 	data["objData"]["position"]["x"] = x
-	data["objData"]["position"]["y"] = y + h/2.0
+	data["objData"]["position"]["y"] = y #+ h/2.0
 	data["objData"]["position"]["z"] = z
 
 	data["lightData"]["rotation"]["x"] = 65.0
