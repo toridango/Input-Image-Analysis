@@ -170,11 +170,31 @@ def buildJSON(x, y, z, h):
 	data["cylinderData"]["position"]["y"] = y
 	data["cylinderData"]["position"]["z"] = z
 	data["cylinderData"]["scale"]["x"] = 20
-	data["cylinderData"]["scale"]["y"] = 0.01
+	data["cylinderData"]["scale"]["y"] = 0.0001
 	data["cylinderData"]["scale"]["z"] = 20
 
 
 	return data
+
+'''
+Build batch variable text for execution in parent folder of composition program,
+with renders in EXR format, inside the "images" folder of the project
+'''
+def buildOneBatchLine(imgName, split):
+
+	s = '--bg ".\\synthetizen\\images\\{0}_ini.png" ^\n\
+ --irpv ".\\synthetizen\\images\\{1}_{0}_irpv.exr" ^\n\
+ --ir ".\\synthetizen\\images\\{1}_{0}_ir.exr" ^\n\
+ --a ".\\synthetizen\\images\\{1}_{0}_alpha.exr" ^\n\
+ --o ".\\synthetizen\\output\\{1}_{0}_output.exr"\n'.format(imgName, split)
+	return s
+
+
+def writeBatch(filepath, batch):
+
+	with open(filepath, 'w') as f:
+		f.write(batch)
+
 
 
 def getModelInfo(fbxPath):
@@ -744,6 +764,8 @@ def main():
 
 	amount = params['amountPerCity'].split(":")
 
+	batch = ''
+
 	for split in params['splits']:
 		for city in params['splits'][split]:
 			iterator = iter(scandir.scandir('..\\{0}\\{1}\\{2}\\'.format(pathDict['imagePath'], split, city)))
@@ -770,17 +792,21 @@ def main():
 					x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
 
 					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
+					batch += '.\\synthetizen\\build\\apps\\compose\\Debug\\synthetizen_compose.exe ^\n --ac ^\n '
+					batch += buildOneBatchLine(imgName, split)
 
 					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
 				i += 1
+
+	batch += 'pause'
+	writeBatch('..\\..\\Projects\\runComposeBunch.bat', batch)
 
 
 
 if __name__ == '__main__':
 
 	start_time = time.time()
-	# test_on_one()
 	main()
 	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
