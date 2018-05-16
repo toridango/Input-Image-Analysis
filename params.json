@@ -18,6 +18,7 @@
     "cameraPath": "\\Cityscapes_Disparity\\camera_trainvaltest\\camera",
     "disparityPath": "\\Cityscapes_Disparity\\disparity_trainvaltest\\disparity",
     "gtFinePath": "\\gtFine_trainvaltest\\gtFine",
-    "imagePath": "\\leftImg8bit_trainvaltest\\leftImg8bit"
+    "imagePath": "\\leftImg8bit_trainvaltest\\leftImg8bit",
+    "renderImgSource": "..\\..\\Projects\\synthetizen\\images\\"
   }
 }

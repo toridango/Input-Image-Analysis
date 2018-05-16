@@ -3,6 +3,8 @@
 
 import os
 import sys
+import shutil
+import glob
 sys.path.insert(0, '..\\cityscapesScripts-master\\cityscapesscripts\\helpers')
 import time
 
@@ -197,6 +199,15 @@ def writeBatch(filepath, batch):
 
 
 
+def copyRGBImageFromTo(imgName, src_dir, dst_dir):
+	#.replace("leftImg8bit", "ini")
+	# print "\t"+os.path.join(src_dir, imgName+"_leftImg8bit.png")
+	for pngfile in glob.iglob(os.path.join(src_dir, imgName+"_leftImg8bit.png")):
+		# print "Copying "+pngfile+" to "+dst_dir+"\\"+imgName+"_ini.png"
+		shutil.copy(pngfile, dst_dir+"\\"+imgName+"_ini.png")
+
+
+
 def getModelInfo(fbxPath):
 
 	qTime = time.time()
@@ -204,6 +215,13 @@ def getModelInfo(fbxPath):
 	w, h, d = getSizes(getScene(fbxPath))
 	sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 	return w, h, d
+
+
+
+
+
+
+
 
 
 
@@ -794,6 +812,8 @@ def main():
 					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
 					batch += '.\\synthetizen\\build\\apps\\compose\\Debug\\synthetizen_compose.exe ^\n --ac ^\n '
 					batch += buildOneBatchLine(imgName, split)
+
+					copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
 
 					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
