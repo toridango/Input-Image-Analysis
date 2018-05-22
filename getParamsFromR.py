@@ -527,6 +527,8 @@ class ImgSet(object):
 
 		if verbose:
 			print self.pointCloud
+			save_ply(".\\output\\samples and debugs\\"+"pCloud.ply", self.pointCloud)
+
 
 		sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 
@@ -678,8 +680,7 @@ class ImgSet(object):
 			if self.pointCloud[complementaryIndices][pfIndices].shape[0] == 0:
 				approved = True
 			else:
-				if verbose:
-					print "Prefilter detected something..." #,self.pointCloud[complementaryIndices,:3][pfIndices]
+				if verbosint "Prefilter detected something..." #,self.pointCloud[complementaryIndices,:3][pfIndices]
 
 				# taimu = time.time()
 
@@ -703,7 +704,7 @@ class ImgSet(object):
 				aux = box[:]
 				for i, e in enumerate(box):
 					aux[i] = e + [220, 20, 60]
-			save_ply(".\\output\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
+			save_ply(".\\output\\samples and debugs\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 
 
 		sys.stdout.write(' {}s (after {} iteration(s))\n'.format(time.time()-qTime, iterations))
