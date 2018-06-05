@@ -1,0 +1,26 @@
+{
+  "splits":
+  {
+    "train": ["hamburg", "hanover", "jena"],
+    "val": [],
+    "test": []
+  },
+
+  "amountPerCity": "0:2",
+
+  "objPathDict":
+  {
+		"CC3": "./resources/some_car.fbx"
+  },
+
+  "outputPath": "C:\\Users\\dgomez\\Documents\\Unity\\Virt on Real\\Assets\\SceneData\\",
+
+  "pathDict":
+  {
+    "cameraPath": "\\Cityscapes_Disparity\\camera_trainvaltest\\camera",
+    "disparityPath": "\\Cityscapes_Disparity\\disparity_trainvaltest\\disparity",
+    "gtFinePath": "\\gtFine_trainvaltest\\gtFine",
+    "imagePath": "\\leftImg8bit_trainvaltest\\leftImg8bit",
+    "renderImgSource": "..\\..\\Projects\\synthetizen\\images\\"
+  }
+}
