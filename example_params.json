@@ -47,7 +47,7 @@
 		"CC3": "./resources/some_car.fbx"
   },
 
-  "outputPath": "%Path to input folder of your Unity Project%",
+  "outputPath": "%Path to the folder of your Unity Assets from where you want to get the scene information%",
 
   "pathDict":
   {
