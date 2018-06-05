@@ -1,0 +1,59 @@
+{
+
+  "__comments__":
+  [
+      "IMPORTANT: THE PARAMETERS JSON FILE SHOULD BE CALLED 'params.json'",
+      "This file contains an explanation of what information to save in the 'params.json' file",
+      "NOTE: entry names shouldn't be changed",
+
+      "splits: contains 3 lists: train, val and test, which in turn contain
+      the names of the subfolders from where the images to be augmented will be taken",
+
+      "amountPerCity: python slice-like containing the index of the first input images
+      (0 means first image in the folder), then a colon and then the last index (excluded)",
+
+      "objPathDict: dictionary with the paths for the object files which could be used to
+      augment the input images",
+
+      "outputPath: path to where the output files (json of the scene) will be saved
+      this should be a folder of the Unity project you use to render the virtual object",
+
+      "pathDict: the 4 first paths lead to the cityscapes folders with the necessary information
+      for the image analysis module. Ideally these should be close to the input analysis script (getParamsFromR)
+      The last one is the path to the folder from where the synthetizen project will extract the
+      images to compose",
+
+
+      "(splits, amountPerCity and objPathDict will likely need to be changed)",
+      "(outputPath needs to be changed)",
+      "(pathDict paths can be left as they are if your Input Image Analysis folder is in
+      the same folder as the cityscapes folders, but the renderImgSource will depend
+      on your symthetizen project's path)",
+      "PLEASE FIND SOME EXAMPLES BELOW"
+  ],
+
+  "splits":
+  {
+    "train": ["hamburg", "hanover", "jena"],
+    "val": [],
+    "test": []
+  },
+
+  "amountPerCity": "0:2",
+
+  "objPathDict":
+  {
+		"CC3": "./resources/some_car.fbx"
+  },
+
+  "outputPath": "%Path to input folder of your Unity Project%",
+
+  "pathDict":
+  {
+    "cameraPath": "\\Cityscapes_Disparity\\camera_trainvaltest\\camera",
+    "disparityPath": "\\Cityscapes_Disparity\\disparity_trainvaltest\\disparity",
+    "gtFinePath": "\\gtFine_trainvaltest\\gtFine",
+    "imagePath": "\\leftImg8bit_trainvaltest\\leftImg8bit",
+    "renderImgSource": "..\\..\\Projects\\synthetizen\\images\\"
+  }
+}

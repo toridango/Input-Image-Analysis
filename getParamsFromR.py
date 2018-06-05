@@ -147,7 +147,8 @@ def savejson(filepath, data):
 
 
 
-def buildJSON(x, y, z, h):
+
+def buildJSON(x, y, z, bbmin, bbmax, e = 0):
 	data = {}
 
 	data["cameraData"] = {}
@@ -160,16 +161,16 @@ def buildJSON(x, y, z, h):
 		data[key]["rotation"] = {e: 0 for e in "xyz"}
 		data[key]["scale"] = {e: 1 for e in "xyz"}
 
-	data["objData"]["position"]["x"] = x
-	data["objData"]["position"]["y"] = y #+ h/2.0
-	data["objData"]["position"]["z"] = z
+	data["objData"]["position"]["x"] = x - (bbmax[0] - bbmin[0])
+	data["objData"]["position"]["y"] = y - bbmin[1]
+	data["objData"]["position"]["z"] = z - (bbmax[2] - bbmin[2])
 
 	data["lightData"]["rotation"]["x"] = 65.0
 	data["lightData"]["rotation"]["y"] = 38.0
 	data["lightData"]["rotation"]["z"] = -8.0
 
 	data["cylinderData"]["position"]["x"] = x
-	data["cylinderData"]["position"]["y"] = y
+	data["cylinderData"]["position"]["y"] = y - e
 	data["cylinderData"]["position"]["z"] = z
 	data["cylinderData"]["scale"]["x"] = 20
 	data["cylinderData"]["scale"]["y"] = 0.0001
@@ -177,6 +178,8 @@ def buildJSON(x, y, z, h):
 
 
 	return data
+
+
 
 '''
 Build batch variable text for execution in parent folder of composition program,
@@ -208,7 +211,7 @@ def copyRGBImageFromTo(imgName, src_dir, dst_dir):
 
 
 
-def getModelInfo(fbxPath):
+def getModelInfoOld(fbxPath):
 
 	qTime = time.time()
 	sys.stdout.write('\tAnalysing fbx model ...')
@@ -217,9 +220,13 @@ def getModelInfo(fbxPath):
 	return w, h, d
 
 
+def getModelInfo(fbxPath):
 
-
-
+	qTime = time.time()
+	sys.stdout.write('\tAnalysing fbx model ...')
+	bbmin, bbmax = getMinMaxCoords(getScene(fbxPath))
+	sys.stdout.write(' {}s\n'.format(time.time() - qTime))
+	return bbmin, bbmax
 
 
 
@@ -344,13 +351,13 @@ class ImgSet(object):
 
 
 
-	def getRoadInfo(self, img):
+	def getCameraInfo(self, img):
 
 		assert self.imgRecord['semantic'] == 1, 'Semantic Image not loaded'
 
 		# self.centroid['road'] = self.getCentroidOfLabel('road')
 
-		with open("\\".join([self.path, self.cameraPath, self.split, self.city, self.imgName+self.cam_suffix])) as f:
+		with open("\\".join([self.path, self.cameraPath, self.split, self.city, self.imgName + self.cam_suffix])) as f:
 			self.camera = json.load(f)
 			self.K = getIntrinsicMatrix(self.camera)
 			self.Rt = getExtrinsicMatrix(self.camera)
@@ -414,6 +421,8 @@ class ImgSet(object):
 		sys.stdout.write(' {}s\n'.format(time.time() - qTime))
 
 
+
+
 	# legacy iterative method
 	def getPointCloud(self, ply_file):
 
@@ -439,6 +448,8 @@ class ImgSet(object):
 				points.append("%f %f %f %d %d %d 0\n"%(X,Y,Z,colour[2],colour[1],colour[0]))
 
 		save_ply(ply_file, points)
+
+
 
 
 	def getPointCloudMatricial(self, colourSource='semantic', max_depth=20000.0, full_transform = False, verbose = False):
@@ -535,18 +546,23 @@ class ImgSet(object):
 		return self.pointCloud
 
 
+
+
+
 	'''
-	point: (x, y)
-	sizes: (w, h, d)
-
-	exclude: list of labels to exclude from the search
+		object: RectPrism inside of which to check
+		complementaryIndices: Indices of points in cloud with label different than the
+								one where the object is to be placed
+		preFilterIndices: if no prefilter is done, it is set by default as an array
+								the shape of the complementaryIndices parameter
+								and filled with True values
 	'''
-	def objectOnPointCollides(self, point, sizes, exclude = []):
+	def checkObjectCollision(self, object, complementaryIndices, preFilterIndices = None):
 
-		x, y = point
-		w, h, d = sizes
-
-		pass
+		if not len(np.shape(preFilterIndices)) > 0:
+			preFilterIndices = np.full(complementaryIndices.shape, True)
+		# return np.where(np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][preFilterIndices])))[0]
+		return np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][preFilterIndices]))
 
 
 
@@ -569,26 +585,25 @@ class ImgSet(object):
 	where c is the point (x,y,z) on which the box is being placed
 	(coordinates in respect to the camera)
 	'''
-	def getAbsoluteBoundingBox(self, (x,y,z), (w,h,d), yaw = 0, pitch = 0, roll = 0):
-		# return [[x - w/2.0, x + w/2.0],
-		# 		[    y    ,  y  +  h ],
-		# 		[z - d/2.0, z + d/2.0]]
+	def getAbsoluteBoundingBox(self, (x,y,z), bbmin, bbmax, yaw = 0, pitch = 0, roll = 0):
 
-		# print x,y,z,"//",w,h,d
-
-												 #    x y z
-		box =  [[x + w/2.0,     y, z - d/2.0],	 # 0  + = -
-				[x + w/2.0,     y, z + d/2.0],	 # 1  + = +
-				[x - w/2.0,     y, z + d/2.0],	 # 2  - = +
-				[x - w/2.0,     y, z - d/2.0],	 # 3  - = -
-				[x + w/2.0, y + h, z - d/2.0],	 # 4  + + -
-				[x + w/2.0, y + h, z + d/2.0],	 # 5  + + +
-				[x - w/2.0, y + h, z + d/2.0],	 # 6  - + +
-				[x - w/2.0, y + h, z - d/2.0]]	 # 7  - + -
+															 #    x y z
+		box =  [[x + bbmax[0], y + bbmin[1], z + bbmin[2]],	 # 0  + - -
+				[x + bbmax[0], y + bbmin[1], z + bbmax[2]],	 # 1  + - +
+				[x + bbmin[0], y + bbmin[1], z + bbmax[2]],	 # 2  - - +
+				[x + bbmin[0], y + bbmin[1], z + bbmin[2]],	 # 3  - - -
+				[x + bbmax[0], y + bbmax[1], z + bbmin[2]],	 # 4  + + -
+				[x + bbmax[0], y + bbmax[1], z + bbmax[2]],	 # 5  + + +
+				[x + bbmin[0], y + bbmax[1], z + bbmax[2]],	 # 6  - + +
+				[x + bbmin[0], y + bbmax[1], z + bbmin[2]]]	 # 7  - + -
 
 		box = rotateBox(box, [x,y,z], yaw = yaw, pitch = pitch, roll = roll)
 
 		return box
+
+
+
+
 
 	'''
 	Given a list of wanted labels, it finds the points that have them and returns
@@ -617,6 +632,10 @@ class ImgSet(object):
 
 		return candidateIndexes
 
+
+
+
+
 	'''
 		objSizes[0] = width
 				[1] = height
@@ -628,7 +647,7 @@ class ImgSet(object):
 
 		labelList: list containing labels on which the object can be placed
 	'''
-	def assignRandomPlacement(self, (width, height, depth), labelList, yaw = 0, pitch = 0, roll = 0, verbose = False):
+	def assignRandomPlacement(self, bbmin, bbmax, labelList, yaw = 0, pitch = 0, roll = 0, verbose = False):
 
 		assert self.pointCloudSaved == True, "Point Cloud not found"
 
@@ -646,7 +665,7 @@ class ImgSet(object):
 			# choose a random index of the ones with the wanted labels
 			choice = int((high-low)*rand.random()+low)
 			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
-			box = self.getAbsoluteBoundingBox((x,y,z), (width, height, depth), yaw = yaw, pitch = pitch, roll = roll)
+			box = self.getAbsoluteBoundingBox((x,y,z), bbmin, bbmax, yaw = yaw, pitch = pitch, roll = roll)
 			rprism = RectPrism(box)
 
 			complementaryIndices = np.delete(np.array(xrange(self.pointCloud.shape[0])), candidateIndexes)
@@ -656,9 +675,9 @@ class ImgSet(object):
 			# Filter between maxs and mins (not strict)
 			pfIndices = np.logical_and(\
 								np.logical_and(\
-								np.logical_and(x - width/2.0 < self.pointCloud[complementaryIndices,0], self.pointCloud[complementaryIndices,0] < x + width/2.0),
-								np.logical_and(y < self.pointCloud[complementaryIndices,1], self.pointCloud[complementaryIndices,1] < y + height)),
-								np.logical_and(z - depth/2.0 < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + depth/2.0))
+								np.logical_and(x + bbmin[0] < self.pointCloud[complementaryIndices,0], self.pointCloud[complementaryIndices,0] < x + bbmax[0]),
+								np.logical_and(y + bbmin[1] < self.pointCloud[complementaryIndices,1], self.pointCloud[complementaryIndices,1] < y + bbmax[1])),
+								np.logical_and(z + bbmin[2] < self.pointCloud[complementaryIndices,2], self.pointCloud[complementaryIndices,2] < z + bbmax[2]))
 
 			# print("prefilter time: {} seconds".format(time.time() - taimu))
 
@@ -674,26 +693,28 @@ class ImgSet(object):
 				vis = False
 
 			if verbose:
-				print "Shape of preFilter", self.pointCloud[complementaryIndices][pfIndices].shape
+				print "\n\t\tShape of preFilter", self.pointCloud[complementaryIndices][pfIndices].shape
 
 
 			if self.pointCloud[complementaryIndices][pfIndices].shape[0] == 0:
 				approved = True
 			else:
-				if verbosint "Prefilter detected something..." #,self.pointCloud[complementaryIndices,:3][pfIndices]
+				if verbose:
+					print "\t\tPrefilter detected something..." #,self.pointCloud[complementaryIndices,:3][pfIndices]
 
 				# taimu = time.time()
 
 				# inTheBox = np.where(np.any(map(rprism.contains, self.pointCloud[complementaryIndices,:3][pfIndices]), axis=0))[0]
 				# inTheBox = np.where(np.any(np.apply_along_axis(rprism.contains, 1, self.pointCloud[complementaryIndices,:3][pfIndices])))[0]
-				inTheBox = self.checkObjectCollision(rprism, complementaryIndices, pfIndices)
+				approved = not self.checkObjectCollision(rprism, complementaryIndices, pfIndices)
 
 				# print("Strict time: {} seconds\n".format(time.time() - taimu))
 
-				approved = (inTheBox.shape[0] == 0)
+				# approved = (inTheBox.shape[0] == 0)
 				if verbose:
-					print "Using contains:", inTheBox.shape
-					print "Approved:", approved
+					# print "\t\t", inTheBox
+					# print "\t\tUsing contains:", inTheBox.shape
+					print "\t\tApproved:", approved
 
 			iterations += 1
 
@@ -707,25 +728,10 @@ class ImgSet(object):
 			save_ply(".\\output\\samples and debugs\\"+"filter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
 
 
-		sys.stdout.write(' {}s (after {} iteration(s))\n'.format(time.time()-qTime, iterations))
+		sys.stdout.write('\t\t{}s (after {} iteration(s))\n'.format(time.time()-qTime, iterations))
 
 		return x, y, z, rprism
 
-
-	'''
-		object: RectPrism inside of which to check
-		complementaryIndices: Indices of points in cloud with label different than the
-								one where the object is to be placed
-		preFilterIndices: if no prefilter is done, it is set by default as an array
-								the shape of the complementaryIndices parameter
-								and filled with True values
-	'''
-	def checkObjectCollision(self, object, complementaryIndices, preFilterIndices = None):
-
-		if not len(np.shape(preFilterIndices)) > 0:
-			preFilterIndices = np.full(complementaryIndices.shape, True)
-
-		return np.where(np.any(np.apply_along_axis(object.contains, 1, self.pointCloud[complementaryIndices,:3][preFilterIndices])))[0]
 
 
 
@@ -750,7 +756,7 @@ def test_on_one():
 	imgset = ImgSet(split, city, imgName, pathDict)
 	imgset.loadImages()
 
-	imgset.getRoadInfo(imgset.semantic)
+	imgset.getCameraInfo(imgset.semantic)
 
 
 	imgset.depthFromDisparity()
@@ -764,14 +770,15 @@ def test_on_one():
 
 	# save_ply(".\\output\\"+"_".join([split, imgName])+".ply", points)
 
-	w, h, d = getSizes(getScene(objPathDict["CC3"]))
-
-	x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
-
+	bbmin, bbmax = getMinMaxCoords(getScene(objPathDict["CC3"]))
+	x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, ["road"], yaw = 0, pitch = 45, roll = 0)
 	# import pprint
 	# pprint.pprint(buildJSON(x,y,z,h))
 
-	savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
+	savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, bbmin, bbmax))
+
+
+
 
 
 def main():
@@ -803,14 +810,23 @@ def main():
 
 					imgset = ImgSet(split, city, imgName, pathDict)
 					imgset.loadImages()
-					imgset.getRoadInfo(imgset.semantic)
+					imgset.getCameraInfo(imgset.semantic)
 					imgset.depthFromDisparity()
 
 					points = imgset.getPointCloudMatricial(colourSource = "semantic")
-					w, h, d = getModelInfo(objPathDict["CC3"])
-					x, y, z, obj = imgset.assignRandomPlacement((w,h,d), ["road"], yaw = 0, pitch = 45, roll = 0)
 
-					savejson(".\\output\\"+"_".join([split, imgName])+".json", buildJSON(x, y, z, h))
+					bbmin, bbmax = getModelInfo(objPathDict["CC3"])
+
+					x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, ["road"], yaw = 0, pitch = 45, roll = 0, verbose = False)
+
+					outJsonPath = ""
+					if "outputPath" in params:
+						outJsonPath = params["outputPath"]+"_".join([split, imgName])+".json"
+					else:
+						outJsonPath = ".\\output\\"+"_".join([split, imgName])+".json"
+
+					savejson(outJsonPath, buildJSON(x, y, z, bbmin, bbmax))
+
 					batch += '.\\synthetizen\\build\\apps\\compose\\Debug\\synthetizen_compose.exe ^\n --ac ^\n '
 					batch += buildOneBatchLine(imgName, split)
 
@@ -828,6 +844,7 @@ def main():
 if __name__ == '__main__':
 
 	start_time = time.time()
+	# test_on_one()
 	main()
 	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
@@ -835,6 +852,7 @@ if __name__ == '__main__':
 	# Z (depth) = (focalLength * baseline) / disparity
 
 	'''
+	(PLAN FOR)
 	Notation for object placement
 
 	Object:
