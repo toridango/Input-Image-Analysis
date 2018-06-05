@@ -2,6 +2,8 @@
 Scripts to analyse cityscapes images in order to generate sets of parameters for
 Unity to simulate the scene geometry and later set an object in it
 
+[Readme is unfinished, requirements and manual pending]
+
 (written in Python 2.7)
 
 # Requirements
