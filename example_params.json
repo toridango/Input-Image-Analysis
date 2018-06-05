@@ -3,6 +3,7 @@
   "__comments__":
   [
       "IMPORTANT: THE PARAMETERS JSON FILE SHOULD BE CALLED 'params.json'",
+      "__comments__ can be deleted but doesn't need to be",
       "This file contains an explanation of what information to save in the 'params.json' file",
       "NOTE: entry names shouldn't be changed",
 
