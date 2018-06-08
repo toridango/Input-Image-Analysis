@@ -181,6 +181,14 @@ def buildJSON(x, y, z, bbmin, bbmax, e = 0):
 
 
 
+def writeImageNamesFile(outPath, imageNames):
+
+	with open(outPath + "imageNames.txt", "w") as f:
+		f.write("\n".join(imageNames))
+
+
+
+
 '''
 Build batch variable text for execution in parent folder of composition program,
 with renders in EXR format, inside the "images" folder of the project
@@ -210,14 +218,6 @@ def copyRGBImageFromTo(imgName, src_dir, dst_dir):
 		shutil.copy(pngfile, dst_dir+"\\"+imgName+"_ini.png")
 
 
-
-def getModelInfoOld(fbxPath):
-
-	qTime = time.time()
-	sys.stdout.write('\tAnalysing fbx model ...')
-	w, h, d = getSizes(getScene(fbxPath))
-	sys.stdout.write(' {}s\n'.format(time.time() - qTime))
-	return w, h, d
 
 
 def getModelInfo(fbxPath):
@@ -789,7 +789,7 @@ def main():
 	objPathDict = params['objPathDict']
 
 	amount = params['amountPerCity'].split(":")
-
+	imageNames = []
 	batch = ''
 
 	for split in params['splits']:
@@ -831,13 +831,14 @@ def main():
 					batch += buildOneBatchLine(imgName, split)
 
 					copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
-
+					imagesNames.append("_".join([split, imgName]))
 					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
 				i += 1
 
 	batch += 'pause'
 	writeBatch('..\\..\\Projects\\runComposeBunch.bat', batch)
+	writeImageNamesFile(params["outputPath"], imageNames)
 
 
 
