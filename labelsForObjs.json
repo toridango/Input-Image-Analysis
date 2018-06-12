@@ -1,0 +1,16 @@
+{
+    "fence"                : ["sidewalk"],
+    "guard rail"           : ["sidewalk"],
+    "pole"                 : ["sidewalk"],
+    "polegroup"            : ["sidewalk"],
+    "traffic light"        : ["sidewalk&road"],
+    "traffic sign"         : ["sidewalk&road"],
+    "vegetation"           : ["sidewalk", "ground"],
+    "person"               : ["sidewalk", "ground", "road"],
+    "rider"                : ["road"],
+    "car"                  : ["road"],
+    "truck"                : ["road"],
+    "bus"                  : ["road"],
+    "motorcycle"           : ["road"],
+    "bicycle"              : ["road"]
+}

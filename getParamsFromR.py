@@ -195,11 +195,11 @@ with renders in EXR format, inside the "images" folder of the project
 '''
 def buildOneBatchLine(imgName, split):
 
-	s = '--bg ".\\synthetizen\\images\\{0}_ini.png" ^\n\
- --irpv ".\\synthetizen\\images\\{1}_{0}_irpv.exr" ^\n\
- --ir ".\\synthetizen\\images\\{1}_{0}_ir.exr" ^\n\
- --a ".\\synthetizen\\images\\{1}_{0}_alpha.exr" ^\n\
- --o ".\\synthetizen\\output\\{1}_{0}_output.exr"\n'.format(imgName, split)
+	s = '--bg %IN_FOLDER%\\{0}_ini.png ^\n\
+ --irpv %IN_FOLDER%\\{1}_{0}_irpv.exr ^\n\
+ --ir %IN_FOLDER%\\{1}_{0}_ir.exr ^\n\
+ --a %IN_FOLDER%\\{1}_{0}_alpha.exr ^\n\
+ --o %OUT_FOLDER%\\{1}_{0}_output.exr\n'.format(imgName, split)
 	return s
 
 
@@ -784,60 +784,65 @@ def test_on_one():
 def main():
 
 	params = readjson('params.json')
+	labelsForObjs = readjson('labelsForObjs.json')
 
 	pathDict = params['pathDict']
-	objPathDict = params['objPathDict']
 
 	amount = params['amountPerCity'].split(":")
 	imageNames = []
-	batch = ''
+	synth = params["synthetizenPathFromBatch"]
+	batch = 'setlocal'+'\n\n'\
+			'SET IN_FOLDER='+synth+'images\\'+'\n'\
+			'SET OUT_FOLDER='+synth+'output\\'+'\n'\
+			'SET EXE_FOLDER='+synth+params['synthetizenEXE']+'\n\n'
 
 	for split in params['splits']:
 		for city in params['splits'][split]:
-			iterator = iter(scandir.scandir('..\\{0}\\{1}\\{2}\\'.format(pathDict['imagePath'], split, city)))
-			i = 0
+			for objName in params['objPathDict']:
+				iterator = iter(scandir.scandir('..\\{0}\\{1}\\{2}\\'.format(pathDict['imagePath'], split, city)))
+				i = 0
 
-			while i > -1 and i < int(amount[1]):
-				try:
-					entry = iterator.next()
-				except StopIteration:
-					i = -1
+				while i > -1 and i < int(amount[1]):
+					try:
+						entry = iterator.next()
+					except StopIteration:
+						i = -1
 
-				if i > -1 and i >= int(amount[0]):
-					imgName = entry.name[:len(city)+14]
+					if i > -1 and i >= int(amount[0]):
+						imgName = entry.name[:len(city)+14]
 
-					partial_time = time.time()
+						partial_time = time.time()
 
-					imgset = ImgSet(split, city, imgName, pathDict)
-					imgset.loadImages()
-					imgset.getCameraInfo(imgset.semantic)
-					imgset.depthFromDisparity()
+						imgset = ImgSet(split, city, imgName, pathDict)
+						imgset.loadImages()
+						imgset.getCameraInfo(imgset.semantic)
+						imgset.depthFromDisparity()
 
-					points = imgset.getPointCloudMatricial(colourSource = "semantic")
+						points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
-					bbmin, bbmax = getModelInfo(objPathDict["CC3"])
+						bbmin, bbmax = getModelInfo(params['objPathDict'][objName][1])
 
-					x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, ["road"], yaw = 0, pitch = 45, roll = 0, verbose = False)
+						x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[params['objPathDict'][objName][0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
 
-					outJsonPath = ""
-					if "outputPath" in params:
-						outJsonPath = params["outputPath"]+"_".join([split, imgName])+".json"
-					else:
-						outJsonPath = ".\\output\\"+"_".join([split, imgName])+".json"
+						outJsonPath = ""
+						if "outputPath" in params:
+							outJsonPath = params["outputPath"]+"_".join([split, imgName])+".json"
+						else:
+							outJsonPath = ".\\output\\"+"_".join([split, imgName])+".json"
 
-					savejson(outJsonPath, buildJSON(x, y, z, bbmin, bbmax))
+						savejson(outJsonPath, buildJSON(x, y, z, bbmin, bbmax))
 
-					batch += '.\\synthetizen\\build\\apps\\compose\\Debug\\synthetizen_compose.exe ^\n --ac ^\n '
-					batch += buildOneBatchLine(imgName, split)
+						batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n '
+						batch += buildOneBatchLine(imgName, split)
 
-					copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
-					imagesNames.append("_".join([split, imgName]))
-					print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
+						copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
+						imageNames.append("_".join([split, imgName]))
+						print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
-				i += 1
+					i += 1
 
 	batch += 'pause'
-	writeBatch('..\\..\\Projects\\runComposeBunch.bat', batch)
+	writeBatch(params["batchPath"], batch)
 	writeImageNamesFile(params["outputPath"], imageNames)
 
 
