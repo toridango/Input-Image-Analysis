@@ -181,10 +181,14 @@ def buildJSON(x, y, z, bbmin, bbmax, e = 0):
 
 
 
-def writeImageNamesFile(outPath, imageNames):
+def writeImageNamesFile(outPath, objectsChosen, imageNames):
 
 	with open(outPath + "imageNames.txt", "w") as f:
-		f.write("\n".join(imageNames))
+		line = [" - ".join([objectsChosen[i][0], \
+							objectsChosen[i][1][objectsChosen[i][1].rfind("/")+1 : objectsChosen[i][1].rfind(".")], \
+							imageNames[i]]) \
+							for i in xrange(min(len(objectsChosen), len(imageNames)))]
+		f.write("\n".join(line))
 
 
 
@@ -193,13 +197,23 @@ def writeImageNamesFile(outPath, imageNames):
 Build batch variable text for execution in parent folder of composition program,
 with renders in EXR format, inside the "images" folder of the project
 '''
-def buildOneBatchLine(imgName, split):
+def buildOneBatchLine(imgName, split, semantic = False):
 
-	s = '--bg %IN_FOLDER%\\{0}_ini.png ^\n\
- --irpv %IN_FOLDER%\\{1}_{0}_irpv.exr ^\n\
+	bg, irpv, out = ("", "", "")
+	if semantic:
+		bg = "gtFine_color.png"
+		irpv = "semantic.png"
+		out = "semantic_gtFine.exr"
+	else:
+		bg = "ini.png"
+		irpv = "irpv.exr"
+		out = "output.exr"
+
+	s = '--bg %IN_FOLDER%\\{0}_{2} ^\n\
+ --irpv %IN_FOLDER%\\{1}_{0}_{3} ^\n\
  --ir %IN_FOLDER%\\{1}_{0}_ir.exr ^\n\
  --a %IN_FOLDER%\\{1}_{0}_alpha.exr ^\n\
- --o %OUT_FOLDER%\\{1}_{0}_output.exr\n'.format(imgName, split)
+ --o %OUT_FOLDER%\\{1}_{0}_{4}\n'.format(imgName, split, bg, irpv, out)
 	return s
 
 
@@ -633,6 +647,12 @@ class ImgSet(object):
 		return candidateIndexes
 
 
+	'''
+		<Prototype> for now it's random
+	'''
+	def chooseObj(self, objDict):
+		return objDict[objDict.keys()[rand.randint(0,len(objDict.keys())-1)]]
+
 
 
 
@@ -651,6 +671,7 @@ class ImgSet(object):
 
 		assert self.pointCloudSaved == True, "Point Cloud not found"
 
+
 		candidateIndexes = self.findLabelsInPointCloud(labelList)
 		low = 0
 		high = candidateIndexes.shape[0] - 1
@@ -660,6 +681,7 @@ class ImgSet(object):
 		sys.stdout.write('\tAssigning random placement...')
 		iterations = 0
 
+		# while not approved, choose a point in the allowed labels, then check if it's approved
 		while not approved:
 
 			# choose a random index of the ones with the wanted labels
@@ -790,6 +812,7 @@ def main():
 
 	amount = params['amountPerCity'].split(":")
 	imageNames = []
+	objectsChosen = []
 	synth = params["synthetizenPathFromBatch"]
 	batch = 'setlocal'+'\n\n'\
 			'SET IN_FOLDER='+synth+'images\\'+'\n'\
@@ -822,7 +845,10 @@ def main():
 
 						bbmin, bbmax = getModelInfo(params['objPathDict'][objName][1])
 
-						x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[params['objPathDict'][objName][0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
+						objChosen = imgset.chooseObj(params["objPathDict"])
+
+						# x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[params['objPathDict'][objName][0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
+						x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[objChosen[0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
 
 						outJsonPath = ""
 						if "outputPath" in params:
@@ -834,16 +860,22 @@ def main():
 
 						batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n '
 						batch += buildOneBatchLine(imgName, split)
-
 						copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
+
+
+						batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n --s ^\n '
+						batch += buildOneBatchLine(imgName, split, semantic = True)
+						copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["gtFinePath"], split, city]), pathDict["renderImgSource"])
+
 						imageNames.append("_".join([split, imgName]))
+						objectsChosen.append(objChosen)
 						print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
 					i += 1
 
 	batch += 'pause'
 	writeBatch(params["batchPath"], batch)
-	writeImageNamesFile(params["outputPath"], imageNames)
+	writeImageNamesFile(params["outputPath"], objectsChosen, imageNames)
 
 
 
