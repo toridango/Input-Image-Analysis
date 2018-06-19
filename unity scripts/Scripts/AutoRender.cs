@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.SceneManagement;
@@ -10,7 +11,8 @@ using UnityEngine.SceneManagement;
 struct Param
 {
     public string obj;
-    public string name;
+    public string objName;
+    public string imgName;
 }
 
 
@@ -18,12 +20,13 @@ public class AutoRender : MonoBehaviour
 {
 
     public GameObject m_camera;
-    public GameObject m_obj;
+    public GameObject[] compositionObjectArray;
     public GameObject m_light;
     public GameObject m_surface;
     public bool useAlphaKernel = false;
     public string outputPath;
 
+    private GameObject m_obj;
     private int m_standby;
     private string m_currStage;
     private List<String> pathList;
@@ -37,6 +40,7 @@ public class AutoRender : MonoBehaviour
     private bool restarted;
     private int m_waittime;
     private bool reset;
+    //private Dictionary<string, int> compObjIndexDict; // dict to relate GameObject name with its index in the Composition Object Array
 
     /*
      * Check if necessary objects are set in the editor inspector
@@ -113,7 +117,7 @@ public class AutoRender : MonoBehaviour
     private void setScene()
     {
 
-        target = sd_path + paramList[i_img].name + ".json";
+        target = sd_path + paramList[i_img].imgName + ".json";
 
         if (File.Exists(target))
         {
@@ -248,6 +252,24 @@ public class AutoRender : MonoBehaviour
         return tex;
     }
 
+    public static int IndexOfNth(string s, string sub, int N)
+    {
+        if (N < 0)
+            while (N < 0)
+                N = N + Regex.Split(s, sub).Length - 1;
+
+        if (N > s.Length - 1)
+            N = N % s.Length;
+
+        if (N == 0)
+            return s.IndexOf(sub);
+        else
+        {
+            string newsub = s.Substring(s.IndexOf(sub) + sub.Length);
+            return s.IndexOf(sub) + sub.Length + IndexOfNth(newsub, sub, N - 1);
+        }
+    }
+
     private static List<Param> ExtractFromtextFile(string filename, string separator = " - ")
     {
         List<String> data = readTextFile(Application.dataPath + "/SceneData/imageNames.txt");
@@ -255,10 +277,41 @@ public class AutoRender : MonoBehaviour
         // make a list in which, for every line in the file, extract both parameters and save them in a struct
         return (from s 
                 in data
-                select new Param { obj = s.Substring(0, s.IndexOf(separator)), name = s.Substring(s.IndexOf(separator) + separator.Length) }
+                select new Param { obj = s.Substring(0, s.IndexOf(separator)),
+                                   objName = s.Substring(s.IndexOf(separator) + separator.Length, IndexOfNth(s, separator, 1) - s.IndexOf(separator) - separator.Length),
+                                   imgName = s.Substring(IndexOfNth(s, separator, 1) + separator.Length)
+                                 }
                 ).ToList();
         
     }
+
+
+    private GameObject FindInCOArrayByName(string name)
+    {
+        GameObject go = null;
+        int i = 0;
+        while (go == null)
+        {
+            if (compositionObjectArray[i].name == name)
+                go = compositionObjectArray[i];
+            i++;
+        }
+
+        return go;
+    }
+
+
+    /*private void PopulateCompObjIndexDict()
+    {
+        for(int i = 0; i < compositionObjectArray.Length; i++)
+        {
+            Debug.Log(String.Format("{0} - {1}", i, compositionObjectArray[i].name));
+            compObjIndexDict.Add(compositionObjectArray[i].name, i);
+        }
+    }*/
+
+
+
 
 
     // Use this for initialization
@@ -268,10 +321,30 @@ public class AutoRender : MonoBehaviour
 
         //Octane.Renderer.Restart();
 
+        //To get the list of objects
+        
+        // solution 1: load from fbx
+        /*GameObject t = AssetDatabase.LoadAssetAtPath("Assets/Vehicles/some_car.fbx", typeof(GameObject)) as GameObject;
+        t.transform.Translate(new Vector3(0, 0, -5));
+        Instantiate(t);*/
+
+        // solution 2: keep all possible objects in scene, with tag "compositionObject", and have them deactivated until needed
+        // GameObject[] objs;
+        // objs = GameObject.FindGameObjectsWithTag("CompositionObject"); // doesn't find
+        // objs = (GameObject[])Resources.FindObjectsOfTypeAll(typeof(GameObject)); // finds too many and is slow
+
+        // solution 3: have an array in the inspector // works fine
+        
+        paramList = ExtractFromtextFile(Application.dataPath + "/SceneData/imageNames.txt");
+        if (compositionObjectArray.Length < 1) throw new ArgumentNullException("compositionObjectArray", "No objects in the composition object array");
+        //PopulateCompObjIndexDict();
+
+        m_obj = FindInCOArrayByName(paramList[0].objName);
+
         CheckObjectsSet();
         CheckObjectsNotNull();
 
-        paramList = ExtractFromtextFile(Application.dataPath + "/SceneData/imageNames.txt");
+
         //pathList = readTextFile(Application.dataPath + "/SceneData/imageNames.txt");
         m_MaxSamplesPerPixel = Octane.Renderer.GetLatestRenderStatistics(Octane.RenderPassId.RENDER_PASS_BEAUTY).maxSamplesPerPixel;
         //Debug.Log(m_MaxSamplesPerPixel);
@@ -318,13 +391,13 @@ public class AutoRender : MonoBehaviour
         float t_since_start = (float)(Math.Round((double)Time.time - start_time, 3));
         // LAST RESORT IDEA TO KEEP OCTANE FROM SAVING THE IMAGES BEFORE THE RENDER HAS BEGUN
         // Force a wait time until 5/7/10/... seconds after start has been called
-
+        
 
         if (restarted)
         {
             if (i_img < imgCount)
             {
-                target = sd_path + paramList[i_img].name + ".json";
+                target = sd_path + paramList[i_img].imgName + ".json";
                 Debug.Log(m_standby);
                 //Octane.Renderer.Stop();
 
@@ -354,13 +427,13 @@ public class AutoRender : MonoBehaviour
                         if (AllClear())
                         {
                             // string fullpath = sd_path + "\\Output\\" + pathList[i_img] + "_" + m_currStage + ".exr";
-                            string fullPath = outputPath + "/" + paramList[i_img].name + "_" + m_currStage + ".exr";
-                            Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].name, m_currStage, fullPath));
+                            string fullPath = outputPath + "/" + paramList[i_img].imgName + "_" + m_currStage + ".exr";
+                            Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].imgName, m_currStage, fullPath));
 
                             if (m_currStage == "alpha")
                             {
-                                string semanticPath = outputPath + "/" + paramList[i_img].name + "_semantic.png";
-                                Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].name, "semantic", semanticPath));
+                                string semanticPath = outputPath + "/" + paramList[i_img].imgName + "_semantic.png";
+                                Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].imgName, "semantic", semanticPath));
                                 /*Octane.Renderer.SaveImage(Octane.RenderPassId.RENDER_PASS_RENDER_LAYER_ID,
                                     semanticPath,
                                     Octane.ImageSaveType.IMAGE_SAVE_TYPE_PNG8,
@@ -392,14 +465,22 @@ public class AutoRender : MonoBehaviour
                                     //setAlpha();
                                     setIRPV();
                                     i_img++;
-                                    if (i_img < imgCount) setScene(); // Crashed here due to this being right after i++
+                                    if (i_img < imgCount)
+                                    {
+                                        m_obj = FindInCOArrayByName(paramList[i_img].objName);
+                                        setScene(); // Crashed here due to this being right after i++
+                                    }
                                     break;
                                 case "alpha":
                                     //m_currStage = "irpv";
                                     //setIRPV();
                                     setAlpha();
                                     i_img++;
-                                    if (i_img < imgCount) setScene();
+                                    if (i_img < imgCount)
+                                    {
+                                        m_obj = FindInCOArrayByName(paramList[i_img].objName);
+                                        setScene();
+                                    }
                                     break;
                                 default:
                                     throw new System.ArgumentException("Stage not recognised", "m_currStage");
