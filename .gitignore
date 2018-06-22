@@ -8,6 +8,7 @@ output/
 resources/
 *.fbx
 params.json
+line-count.txt
 
 # C extensions
 *.so
