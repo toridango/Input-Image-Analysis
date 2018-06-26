@@ -183,11 +183,13 @@ def buildJSON(x, y, z, bbmin, bbmax, e = 0):
 
 def writeImageNamesFile(outPath, objectsChosen, imageNames):
 
-	with open(outPath + "imageNames.txt", "w") as f:
+	with open(outPath + "\\imageNames.txt", "w") as f:
 		line = [" - ".join([objectsChosen[i][0], \
 							objectsChosen[i][1][objectsChosen[i][1].rfind("/")+1 : objectsChosen[i][1].rfind(".")], \
 							imageNames[i]]) \
 							for i in xrange(min(len(objectsChosen), len(imageNames)))]
+		# print outPath + "\\imageNames.txt"
+		# print "\n".join(line)
 		f.write("\n".join(line))
 
 
