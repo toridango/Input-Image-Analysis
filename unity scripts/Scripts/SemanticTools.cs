@@ -5,12 +5,6 @@ using System.Linq;
 
 public static class SemanticTools
 {
-    // rendered obj: old colours, new colours
-    //private Dictionary<string, Dictionary<string, Color[]>> objColours;
-
-
-    //public Dictionary<string, Dictionary<string, Color[]>> GetObjColoursDict()
-    //{ return objColours; }
 
     // RGB int8 to float32 array
     private static float[] ToFloatArray(int r, int g, int b)
@@ -95,7 +89,7 @@ public static class SemanticTools
             case "motorcycle": 
             case "bicycle":
             default:
-                colours = new Color[] { ToColour(ToFloatArray(186, 0, 0)) };
+                colours = new Color[] { ToColour(ToFloatArray(186, 0, 0)) }; // Colour for render layer ID = 1
                 break;
         }
         return colours;

@@ -33,20 +33,8 @@ public class GameObjData
         position = t.position;
         rotation = t.rotation.eulerAngles;
         scale = t.localScale;
-        //Quaternion r = Quaternion.Euler(rotation);
-        //Debug.Log(t.rotation + "\n" + r);
     }
-
-    /*public Transform GetTransform()
-    {
-        Transform t = new Transform()
-        t.position = position;
-        t.rotation = Quaternion.Euler(rotation);
-        t.localScale = scale;
-
-
-        return t;
-    }*/
+    
 }
 
 [Serializable]
@@ -59,14 +47,7 @@ public class SceneData
     public GameObjData cylinderData;
 
     private Dictionary<string, int> infoRegister;
-
-    /*public SceneData()
-    {
-        infoRegister.Add("cam", 0);
-        infoRegister.Add("obj", 0);
-        infoRegister.Add("lit", 0);
-        infoRegister.Add("cyl", 0);
-    }*/
+    
 
     public SceneData(GameObject camera, GameObject obj, GameObject light, GameObject cylinder)
     {
@@ -97,7 +78,6 @@ public class SceneData
 
     private GameObject GetGameObjectFromGameObjectData(GameObjData god, GameObject go)
     {
-        //GameObject go = new GameObject();
         go.transform.position = god.position;
         go.transform.rotation = Quaternion.Euler(god.rotation);
         go.transform.localScale = god.scale;
@@ -116,7 +96,6 @@ public class SceneDataManager
     {
         SceneData SD = new SceneData(camera, obj, light, cylinder);
         string json = JsonUtility.ToJson(SD, true);
-        //Debug.Log("Scene Data " + JsonUtility.ToJson(SD, true));
         return json;
     }
 }

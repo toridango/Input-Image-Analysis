@@ -3,11 +3,9 @@ using UnityEditor;
 using UnityEngine.SceneManagement;
 using System.IO;
 using System;
-//using Assets.Editor;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-//using System.Math;
 
 public class RendererEditorTools : MonoBehaviour
 {
@@ -17,6 +15,12 @@ public class RendererEditorTools : MonoBehaviour
     private static GameObject m_light = GameObject.Find("Directional Light");
     private static GameObject m_cylinder = GameObject.Find("Cylinder");
 
+    /**
+     * This file contains many methods to be called from the Unity Editor
+     * Which were written to be tried out, or to help make some tasks faster
+     * 
+     * It can be ignored
+     */
 
 
     static GameObject GetCylinder(GameObject[] go_array)
@@ -345,32 +349,7 @@ public class RendererEditorTools : MonoBehaviour
 
     }
 
-
-    /*public static Bitmap ChangeColor(Bitmap scrBitmap)
-    {
-
-        //You can change your new color here. Red,Green,LawnGreen any..
-        Color newColor = Color.FromRgb( 142, 0, 0);
-        Color actualColor;
-
-        //make an empty bitmap the same size as scrBitmap
-        Bitmap newBitmap = new Bitmap(scrBitmap.Width, scrBitmap.Height);
-        for (int i = 0; i < scrBitmap.Width; i++)
-        {
-            for (int j = 0; j < scrBitmap.Height; j++)
-            {
-                //get the pixel from the scrBitmap image
-                actualColor = scrBitmap.GetPixel(i, j);
-                
-                if (actualColor.equals(Color.FromRgb(186, 0, 0)))
-                    newBitmap.SetPixel(i, j, newColor);
-                else
-                    newBitmap.SetPixel(i, j, actualColor);
-            }
-        }
-        return newBitmap;
-    }*/
-
+    
     public static Texture2D LoadPNG(string filePath)
     {
 
@@ -474,25 +453,7 @@ public class RendererEditorTools : MonoBehaviour
 
         string sd_path = Application.dataPath;
         string savepath = "E:\\Dan\\Projects";
-
-        // This method operates on an image loaded from file, and then saves it again
-        /*
-        Texture2D layerIds = LoadPNG(sd_path + "\\sample_semantic.png");
-        Debug.Log(String.Format("At least I can read. Sizes: {0}, {1}", layerIds.width, layerIds.height));
-
-        Color[] oldC = { new Color((float)186 / 255.0f, 0.0f, 0.0f) };
-        Color[] newC = { new Color((float)142 / 255.0f, 0.0f, 0.0f) };
-        layerIds = CorrectColoursOnTexture(layerIds, oldC, newC);
-
-        string savepath = "E:\\Dan\\Projects";
-        Debug.Log(String.Format("I'll try to save to {0}", savepath + "\\corrected.png"));
-        File.WriteAllBytes(savepath + "\\corrected.png", layerIds.EncodeToPNG());
-        Debug.Log(String.Format("Saved"));
-        */
-
-
-
-
+        
 
         // This method reads the given pixel buffer to copy it into a Texture2D with the correct format
         // (in our case PNG8 for the old colours and float32 for the new ones) and returns the texture
@@ -502,141 +463,7 @@ public class RendererEditorTools : MonoBehaviour
         Color[] newC = { new Color((float)142 / 255.0f, 0.0f, 0.0f, 1.0f) };
         Texture2D tex = CorrectColoursOnPixelBuffer(pb, 4, oldC, newC);
         File.WriteAllBytes(savepath + "\\corrected.png", tex.EncodeToPNG());
-
-
-
-
-
-
-
-        //byte[] pixArray = new byte[pb.ResX * pb.ResY * 4];
-        //Marshal.Copy(pb.Pixels, pixArray, (Int32)0, (Int32)pb.ResX * (Int32)pb.ResY * 4);
-
-        //Texture2D texture = new Texture2D((int)pb.ResX, (int)pb.ResY, TextureFormat.RGBA32, false, true); // Texture2D.CreateExternalTexture((int)pb.ResX, (int)pb.ResY, TextureFormat.RGBA32, false, false, pb.Pixels);
-        //texture.LoadRawTextureData(pixArray);
-
-        /*string savepath = "E:\\Dan\\Projects";
-        System.IO.File.WriteAllBytes(savepath + "\\corrected.png", texture.EncodeToPNG());*/
-
-
-        /*int channels = 4;
-        IntPtr pixels = pb.Pixels;
-        Texture2D tex = new Texture2D((int)pb.ResX, (int)pb.ResY);
-
-        Debug.Log(String.Format("At least I do a bit. Sizes: {0}, {1}. Format: {2}", pb.ResX, pb.ResY, pb.OctaneImageFormat));
-        unsafe
-        {
-            
-            int counter = 0;
-            int counter2 = 0;
-            List<Color> lCol = new List<Color>();
-            Color newRed = new Color((float)142 / 255.0f, 0.0f, 0.0f, 1.0f);
-            for (int i = 0; i < pb.ResY; i++)
-            {
-                //Color color = new Color();
-                float* pI = (float*)pixels.ToPointer() + i * pb.ResX * channels; //pointer to start of row
-                for (int j = 0; j < pb.ResX; j++)
-                {
-
-                    // using IntPtr
-                    if ((int)(255 * pI[j * channels + 0]) == 186 &&
-                        (int)(255 * pI[j * channels + 1]) == 0 &&
-                        (int)(255 * pI[j * channels + 2]) == 0)
-                    {
-                        counter++;
-                        pI[j * channels + 0] = (float)142 / 255.0f;
-                        pI[j * channels + 1] = 0.0f;
-                        pI[j * channels + 2] = 0.0f;
-                        tex.SetPixel(j, i, newRed);
-                    }
-                    else if ((int)(255 * pI[j * channels + 0]) == 0 &&
-                            (int)(255 * pI[j * channels + 1]) == 0 &&
-                            (int)(255 * pI[j * channels + 2]) == 0)
-                    {
-                        counter2++;
-                        tex.SetPixel(j, i, new Color(pI[j * channels + 0], pI[j * channels + 1], pI[j * channels + 2], pI[j * channels + 3]));
-                    }
-                    else
-                    {
-                        Color c = new Color(pI[j * channels + 0], pI[j * channels + 1], pI[j * channels + 2], pI[j * channels + 3]);
-                        tex.SetPixel(j, i, c);
-                        if (!lCol.Contains(c))
-                            lCol.Add(c);
-                    }
-
-                    
-
-                }
-
-            }
-            Debug.Log(String.Format("Red {0}/{1}", counter, pb.ResX * pb.ResY));
-            Debug.Log(String.Format("Black {0}/{1}", counter2, pb.ResX * pb.ResY));
-            if (lCol.Count < 25)
-            {
-                if (lCol.Count == 0) Debug.Log(String.Format("No other colours"));
-                else
-                    for (int i = 0; i < lCol.Count; i++)
-                        Debug.Log(String.Format("Other: {0}, {1}, {2}", (int)(255 * lCol[i].r), (int)(255 * lCol[i].g), (int)(255 * lCol[i].b)));
-
-            } else
-                Debug.Log(String.Format("Too many other colours"));
-
-            File.WriteAllBytes(savepath + "\\corrected.png", tex.EncodeToPNG());*/
-
-        /*Debug.Log(String.Format("Converting"));
-        byte[] pixArray = new byte[pb.ResX * pb.ResY * channels];
-        for (int i = 0; i < pb.ResY; i++)
-        {
-            float* pI = (float*)pixels.ToPointer() + i * pb.ResX * channels;
-            for (int j = 0; j < pb.ResX; j++)
-            {
-                for (int k = 0; k < channels; k++)
-                    pixArray[i * (int)pb.ResX * channels + j * channels + k] = (byte)(255 * pI[j * channels + k]);
-            }
-        }
-
-        //Marshal.Copy(pb.Pixels, pixArray, (Int32)0, (Int32)pb.ResX * (Int32)pb.ResY * 4);
-        Debug.Log(String.Format("Saving"));
-        File.WriteAllBytes(savepath + "\\corrected.png", tex.EncodeToPNG());*/
-            
-
-            
-
-
-        //Debug.Log(String.Format("Saving in {0}", savepath + "\\corrected.png"));
-        /*Octane.Renderer.SaveImage(Octane.RenderPassId.RENDER_PASS_RENDER_LAYER_ID,
-            sd_path,
-            Octane.ImageSaveType.IMAGE_SAVE_TYPE_PNG8,
-            true);*/
-        /*byte[] pixArray = new byte[resx * resy * channels];
-        Marshal.Copy(pixels, pixArray, (Int32) 0, (Int32)resx * (Int32)resy * channels);
-        System.IO.File.WriteAllBytes(savepath + "\\corrected.png", tex.EncodeToPNG());
-
-        Debug.Log("Saved");*/
-
-
-        /*sd_path = Application.dataPath;
-
-        try
-        {
-            Bitmap bmp = null;
-            //The Source Directory in debug\bin\Big\
-            string[] files = Directory.GetFiles(sd_path, "sample_semantic.png");
-            foreach (string filename in files)
-            {
-                bmp = (Bitmap)Image.FromFile(filename);
-                bmp = ChangeColor(bmp);
-                string[] spliter = filename.Split('\\');
-                //Destination Directory
-                bmp.Save(sd_path + spliter[1] + "sample_sem_corrected.png");
-
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }*/
-
+        
     }
 
 

@@ -25,6 +25,7 @@ public class AutoRender : MonoBehaviour
     public GameObject m_surface;
     public bool useAlphaKernel = false;
     public string outputPath;
+    public bool composeOnFinish = false;
 
     private GameObject m_obj;
     private int m_standby;
@@ -40,7 +41,6 @@ public class AutoRender : MonoBehaviour
     private bool restarted;
     private int m_waittime;
     private bool reset;
-    //private Dictionary<string, int> compObjIndexDict; // dict to relate GameObject name with its index in the Composition Object Array
 
     /*
      * Check if necessary objects are set in the editor inspector
@@ -71,24 +71,40 @@ public class AutoRender : MonoBehaviour
 
     }
 
+    /**
+     * Ensure correct active/inactive GameObjs for IRPV
+     */
     private void setIRPV()
     {
         if (!m_obj.activeSelf) m_obj.SetActive(true);
         if (!m_surface.activeSelf) m_surface.SetActive(true);
     }
 
+    /**
+     * Ensure correct active/inactive GameObjs for IR
+     */
     private void setIR()
     {
         if (m_obj.activeSelf) m_obj.SetActive(false);
         if (!m_surface.activeSelf) m_surface.SetActive(true);
     }
 
+    /**
+     * Ensure correct active/inactive GameObjs for Alpha
+     */
     private void setAlpha()
     {
         if (!m_obj.activeSelf) m_obj.SetActive(true);
         if (m_surface.activeSelf) m_surface.SetActive(false);
     }
 
+    /**
+     * Read file as text file and return the results
+     * 
+     * PARAM: string with the path to the file
+     * RETR: List of strings with the text in the file
+     *       Each element of the list is a line in the file
+     */
     static List<String> readTextFile(String filepath)
     {
         List<String> results = new List<string>();
@@ -96,17 +112,15 @@ public class AutoRender : MonoBehaviour
         int counter = 0;
         string line;
 
-        // Read the file and display it line by line.  
+        // Read the file line by line.  
         System.IO.StreamReader file = new System.IO.StreamReader(filepath);
         while ((line = file.ReadLine()) != null)
         {
-            //Debug.Log(line);
             results.Add(line);
             counter++;
         }
 
         file.Close();
-        //Debug.Log(string.Format("There were {0} lines.", counter.ToString()));
 
         return results;
     }
@@ -116,9 +130,21 @@ public class AutoRender : MonoBehaviour
      */
     private void setScene()
     {
+        // Get the object that is specified for this scene
+        m_obj = FindInCOArrayByName(paramList[0].objName);
+
+        // and set it as active, while inactivating the rest of composition objects
+        foreach(GameObject go in compositionObjectArray)
+        {
+            if (go.name == m_obj.name)
+                go.SetActive(true);
+            else
+                go.SetActive(false);
+        }
 
         target = sd_path + paramList[i_img].imgName + ".json";
 
+        // Then retrieve the scene's parameters from its JSON file
         if (File.Exists(target))
         {
             // Read the json from the file into a string
@@ -143,6 +169,9 @@ public class AutoRender : MonoBehaviour
 
     }
 
+    /**
+     * Custom check for render finished. ATM It's used as permission to save
+     */ 
     private bool FinishedRendering()
     {
         return
@@ -157,6 +186,7 @@ public class AutoRender : MonoBehaviour
 
     private bool IsActive(GameObject go) { return go.activeSelf && go.activeInHierarchy; }
 
+    // Check scene is set correctly
     private bool AllClear()
     {
         bool check = false;
@@ -210,6 +240,13 @@ public class AutoRender : MonoBehaviour
      * This function assumes that the old colours are passed as 8bit and new colours are passed in float32 with range (0-1)
      * In our case: the buffer has HDR with float32 but we use 8bit png values to compare because it helps avoid
      * floating point errors
+     * 
+     * PARAM: Octane Pixel Buffer, 
+     *        number of channels of image in pixel buffer, 
+     *        old colours are to be changed for 
+     *        new colours (e.g. all 1.0, 1.0, 1.0 for 0.0, 0.0, 0.0)
+     *        
+     * RETR: Unity Texture2D (can be encoded as png to be saved as bytes)
      */
     public static Texture2D CorrectColoursOnPixelBuffer(Octane.Renderer.PixelBuffer pb, int channels, Color[] oldColours, Color[] newColours, bool verbose = false)
     {
@@ -252,6 +289,12 @@ public class AutoRender : MonoBehaviour
         return tex;
     }
 
+    /**
+     * Nth index of sub substring in s string
+     * 
+     * PARAM: s string, sub substring, N number of occurence to find (0-based)
+     * RETR: int (index of Nth occurence of substring in original s string)
+     */
     public static int IndexOfNth(string s, string sub, int N)
     {
         if (N < 0)
@@ -270,6 +313,9 @@ public class AutoRender : MonoBehaviour
         }
     }
 
+    /**
+     * Reads a text file to fill a list of "Param" structs
+     */
     private static List<Param> ExtractFromtextFile(string filename, string separator = " - ")
     {
         List<String> data = readTextFile(Application.dataPath + "/SceneData/imageNames.txt");
@@ -299,18 +345,36 @@ public class AutoRender : MonoBehaviour
 
         return go;
     }
-
-
-    /*private void PopulateCompObjIndexDict()
+    
+    /**
+     * Batch to run composition module should be somewhere in a folder "above" outpath
+     * This function keeps looking in previous folders and then returns the path to the folder where it is
+     */
+    private string BackUntilBatch(string path)
     {
-        for(int i = 0; i < compositionObjectArray.Length; i++)
+        bool found = false;
+
+        while (!found)
         {
-            Debug.Log(String.Format("{0} - {1}", i, compositionObjectArray[i].name));
-            compObjIndexDict.Add(compositionObjectArray[i].name, i);
+            found = File.Exists(path + "/runComposeBunch.bat");
+            if (!found)
+                path = path.Substring(0, path.LastIndexOf("/"));
         }
-    }*/
+        return path;
+    }
 
-
+    /**
+     * Run composition module
+     */
+    private void RunSynthetizenBatch()
+    {
+        System.Diagnostics.Process proc = new System.Diagnostics.Process();
+        proc.StartInfo.WorkingDirectory = BackUntilBatch(outputPath);
+        proc.StartInfo.FileName = "runComposeBunch.bat";
+        proc.StartInfo.CreateNoWindow = false;
+        proc.Start();
+        Debug.Log(String.Format("Started {0}", proc.StartInfo.WorkingDirectory + "/" + proc.StartInfo.FileName));
+    }
 
 
 
@@ -318,44 +382,26 @@ public class AutoRender : MonoBehaviour
     void Start()
     {
         start_time = Time.time;
-
-        //Octane.Renderer.Restart();
-
-        //To get the list of objects
         
-        // solution 1: load from fbx
-        /*GameObject t = AssetDatabase.LoadAssetAtPath("Assets/Vehicles/some_car.fbx", typeof(GameObject)) as GameObject;
-        t.transform.Translate(new Vector3(0, 0, -5));
-        Instantiate(t);*/
-
-        // solution 2: keep all possible objects in scene, with tag "compositionObject", and have them deactivated until needed
-        // GameObject[] objs;
-        // objs = GameObject.FindGameObjectsWithTag("CompositionObject"); // doesn't find
-        // objs = (GameObject[])Resources.FindObjectsOfTypeAll(typeof(GameObject)); // finds too many and is slow
-
-        // solution 3: have an array in the inspector // works fine
-        
+        // get parameters
         paramList = ExtractFromtextFile(Application.dataPath + "/SceneData/imageNames.txt");
         if (compositionObjectArray.Length < 1) throw new ArgumentNullException("compositionObjectArray", "No objects in the composition object array");
-        //PopulateCompObjIndexDict();
-
+        
+        // set things up
         m_obj = FindInCOArrayByName(paramList[0].objName);
 
         CheckObjectsSet();
         CheckObjectsNotNull();
 
-
-        //pathList = readTextFile(Application.dataPath + "/SceneData/imageNames.txt");
+        
         m_MaxSamplesPerPixel = Octane.Renderer.GetLatestRenderStatistics(Octane.RenderPassId.RENDER_PASS_BEAUTY).maxSamplesPerPixel;
-        //Debug.Log(m_MaxSamplesPerPixel);
         imgCount = paramList.Count;
         i_img = 0;
-
-        //Debug.Log(String.Format("Number of input images: {0}", imgCount));
+        
 
         sd_path = Application.dataPath + "/SceneData/";
 
-
+        // set the scene according to current specified mode
         if (useAlphaKernel)
         {
             m_currStage = "alpha";
@@ -374,6 +420,7 @@ public class AutoRender : MonoBehaviour
         reset = false;
     }
 
+    // Thread to let Unity load the assets before Octane starts saving renders of unloaded assets
     IEnumerator OpenTheGates(int time)
     {
         yield return new WaitForSecondsRealtime(time / 2);
@@ -389,21 +436,18 @@ public class AutoRender : MonoBehaviour
     {
 
         float t_since_start = (float)(Math.Round((double)Time.time - start_time, 3));
-        // LAST RESORT IDEA TO KEEP OCTANE FROM SAVING THE IMAGES BEFORE THE RENDER HAS BEGUN
-        // Force a wait time until 5/7/10/... seconds after start has been called
-        
 
+        // Custom state machine to handle which image is being rendered for the composition, 
+        //  whether the models are loaded, which mode is on, which is the current iteration
         if (restarted)
         {
             if (i_img < imgCount)
             {
                 target = sd_path + paramList[i_img].imgName + ".json";
                 Debug.Log(m_standby);
-                //Octane.Renderer.Stop();
 
                 if (m_standby < 3)
                 {
-                    //Debug.Log("Opening Gates");
                     if (m_standby < 1)
                     {
                         Debug.Log("Setting first scene");
@@ -412,10 +456,8 @@ public class AutoRender : MonoBehaviour
                     }
                     else if (m_standby == 1)
                     {
-                        //if(!useAlphaKernel)
                         m_standby++;
                         StartCoroutine(OpenTheGates(m_waittime));
-                        //else StartCoroutine(OpenTheGates(10));
                     }
 
                 }
@@ -426,7 +468,6 @@ public class AutoRender : MonoBehaviour
                     {
                         if (AllClear())
                         {
-                            // string fullpath = sd_path + "\\Output\\" + pathList[i_img] + "_" + m_currStage + ".exr";
                             string fullPath = outputPath + "/" + paramList[i_img].imgName + "_" + m_currStage + ".exr";
                             Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].imgName, m_currStage, fullPath));
 
@@ -434,14 +475,9 @@ public class AutoRender : MonoBehaviour
                             {
                                 string semanticPath = outputPath + "/" + paramList[i_img].imgName + "_semantic.png";
                                 Debug.Log(String.Format("{0}/{1} - Name: {2} - Saving: {3}\nFull Path: {4}", i_img + 1, imgCount, paramList[i_img].imgName, "semantic", semanticPath));
-                                /*Octane.Renderer.SaveImage(Octane.RenderPassId.RENDER_PASS_RENDER_LAYER_ID,
-                                    semanticPath,
-                                    Octane.ImageSaveType.IMAGE_SAVE_TYPE_PNG8,
-                                    true);*/
+
                                 Octane.Renderer.PixelBuffer pb = Octane.Renderer.GetPixels(Octane.RenderPassId.RENDER_PASS_RENDER_LAYER_ID);
                                 if (pb == null) throw new System.ArgumentNullException("No Render Layer ID render pass found", "pb");
-                                //Color[] oldC = { new Color((float)186 / 255.0f, 0.0f, 0.0f, 1.0f) };
-                                //Color[] newC = { new Color((float)142 / 255.0f, 0.0f, 0.0f, 1.0f) };
                                 Color[] oldC = SemanticTools.GetOldColoursByObj(paramList[i_img].obj);
                                 Color[] newC = SemanticTools.GetNewColoursByObj(paramList[i_img].obj);
                                 Texture2D tex = CorrectColoursOnPixelBuffer(pb, 4, oldC, newC);
@@ -462,7 +498,6 @@ public class AutoRender : MonoBehaviour
                                     break;
                                 case "ir":
                                     m_currStage = "irpv";
-                                    //setAlpha();
                                     setIRPV();
                                     i_img++;
                                     if (i_img < imgCount)
@@ -472,8 +507,6 @@ public class AutoRender : MonoBehaviour
                                     }
                                     break;
                                 case "alpha":
-                                    //m_currStage = "irpv";
-                                    //setIRPV();
                                     setAlpha();
                                     i_img++;
                                     if (i_img < imgCount)
@@ -492,7 +525,6 @@ public class AutoRender : MonoBehaviour
                                 m_waittime = 5;
                                 reset = false;
                             }
-                            //Octane.Renderer.Restart();
 
                         }
                         else
@@ -507,6 +539,9 @@ public class AutoRender : MonoBehaviour
                 float rounded_timedelta = (float)(Math.Round((double)Time.time - start_time, 3));
 
                 Debug.Log(String.Format("Finished rendering!\nTime elapsed: {0}s", rounded_timedelta));
+                
+                if (composeOnFinish) RunSynthetizenBatch();
+
                 Application.Quit(); // Doesn't quit in Editor mode, but I left it just in case
                 UnityEditor.EditorApplication.isPlaying = false;
             }

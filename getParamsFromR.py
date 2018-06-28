@@ -848,7 +848,6 @@ def main():
 
 						objChosen = imgset.chooseObj(params["objPathDict"])
 
-						# x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[params['objPathDict'][objName][0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
 						x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[objChosen[0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
 
 						outJsonPath = ""
@@ -878,7 +877,7 @@ def main():
 	writeBatch(params["batchPath"], batch)
 	writeImageNamesFile(params["outputPath"], objectsChosen, imageNames)
 
-		# "SL": ["traffic sign", "./resources/SpeedLimit.fbx"]
+	# "SL": ["traffic sign", "./resources/SpeedLimit.fbx"]
 
 
 if __name__ == '__main__':
@@ -888,25 +887,4 @@ if __name__ == '__main__':
 	main()
 	print("Elapsed time: {} seconds\n\n".format(time.time() - start_time))
 
-
 	# Z (depth) = (focalLength * baseline) / disparity
-
-	'''
-	(PLAN FOR)
-	Notation for object placement
-
-	Object:
-		name
-		(allowed) labels
-		(allowed) orientations:
-			any
-			any lane
-			right lane
-			sign
-		constraints:
-			any (placement)
-			border
-			between (close to all the labels)
-		special flags:
-			driving (has to be on the right lane)
-	'''
