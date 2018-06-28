@@ -657,7 +657,6 @@ class ImgSet(object):
 
 
 
-
 	'''
 		objSizes[0] = width
 				[1] = height
@@ -879,6 +878,7 @@ def main():
 	writeBatch(params["batchPath"], batch)
 	writeImageNamesFile(params["outputPath"], objectsChosen, imageNames)
 
+		# "SL": ["traffic sign", "./resources/SpeedLimit.fbx"]
 
 
 if __name__ == '__main__':
