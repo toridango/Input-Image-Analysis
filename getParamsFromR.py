@@ -157,19 +157,27 @@ def buildJSON(x, y, z, bbmin, bbmax, e = 0):
 	data["cylinderData"] = {}
 
 	for key in data:
-		data[key]["position"] = {e: 0 for e in "xyz"}
-		data[key]["rotation"] = {e: 0 for e in "xyz"}
-		data[key]["scale"] = {e: 1 for e in "xyz"}
+		data[key]["position"] = {coord: 0 for coord in "xyz"}
+		data[key]["rotation"] = {coord: 0 for coord in "xyz"}
+		data[key]["scale"] = {coord: 1 for coord in "xyz"}
 
-	data["objData"]["position"]["x"] = x - (bbmax[0] - bbmin[0])
+	# print "saved x:", -1.0 * (x + (bbmax[0] - (bbmax[0] - bbmin[0])/2.0))
+	# print "saved y:", y - bbmin[1]
+	# print "saved z:", z + (bbmax[2] - (bbmax[2] - bbmin[2])/2.0)
+
+	# Correct uncentered models
+	data["objData"]["position"]["x"] = -1.0 * (x + (bbmax[0] - (bbmax[0] - bbmin[0])/2.0))
 	data["objData"]["position"]["y"] = y - bbmin[1]
-	data["objData"]["position"]["z"] = z - (bbmax[2] - bbmin[2])
+	data["objData"]["position"]["z"] = z + (bbmax[2] - (bbmax[2] - bbmin[2])/2.0)
+	data["objData"]["scale"]["x"] = 1.3
+	data["objData"]["scale"]["y"] = 1.3
+	data["objData"]["scale"]["z"] = 1.3
 
 	data["lightData"]["rotation"]["x"] = 65.0
 	data["lightData"]["rotation"]["y"] = 38.0
 	data["lightData"]["rotation"]["z"] = -8.0
 
-	data["cylinderData"]["position"]["x"] = x
+	data["cylinderData"]["position"]["x"] = -1.0 * (x)
 	data["cylinderData"]["position"]["y"] = y - e
 	data["cylinderData"]["position"]["z"] = z
 	data["cylinderData"]["scale"]["x"] = 20
@@ -687,7 +695,12 @@ class ImgSet(object):
 
 			# choose a random index of the ones with the wanted labels
 			choice = int((high-low)*rand.random()+low)
-			(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
+			try:
+				(x,y,z) = self.pointCloud[candidateIndexes[choice], :3].tolist()[0]
+			except IndexError:
+				print "\n\t\tNo points with required label,",
+				return -1,-1,-1, None
+
 			box = self.getAbsoluteBoundingBox((x,y,z), bbmin, bbmax, yaw = yaw, pitch = pitch, roll = roll)
 			rprism = RectPrism(box)
 
@@ -712,7 +725,8 @@ class ImgSet(object):
 				aux = box[:]
 				for i, e in enumerate(box):
 					aux[i] = e + [220, 20, 60]
-				save_ply(".\\output\\"+"prefilter_and_wBox.ply", np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
+				save_ply(".\\output\\"+"prefilter_and_wBox_{}.ply".format(self.imgName), np.concatenate((self.pointCloud[complementaryIndices][pfIndices], np.array(aux)), axis=0))
+				save_ply(".\\output\\"+"pCloud_{}.ply".format(self.imgName), self.pointCloud)
 				vis = False
 
 			if verbose:
@@ -844,32 +858,38 @@ def main():
 
 						points = imgset.getPointCloudMatricial(colourSource = "semantic")
 
-						bbmin, bbmax = getModelInfo(params['objPathDict'][objName][1])
-
 						objChosen = imgset.chooseObj(params["objPathDict"])
+
+						# bbmin, bbmax = getModelInfo(params['objPathDict'][objName][1])
+						bbmin, bbmax = getModelInfo(objChosen[1])
+
 
 						x, y, z, obj = imgset.assignRandomPlacement(bbmin, bbmax, labelsForObjs[objChosen[0]], yaw = 0, pitch = 45, roll = 0, verbose = False)
 
-						outJsonPath = ""
-						if "outputPath" in params:
-							outJsonPath = params["outputPath"]+"_".join([split, imgName])+".json"
+						if obj == None and (x,y,z) == (-1,-1,-1):
+							print "henceford excluding this case"
 						else:
-							outJsonPath = ".\\output\\"+"_".join([split, imgName])+".json"
+							# print "x: {}, y: {}, z: {}".format(x, y, z)
+							outJsonPath = ""
+							if "outputPath" in params:
+								outJsonPath = params["outputPath"]+"_".join([split, imgName])+".json"
+							else:
+								outJsonPath = ".\\output\\"+"_".join([split, imgName])+".json"
 
-						savejson(outJsonPath, buildJSON(x, y, z, bbmin, bbmax))
+							savejson(outJsonPath, buildJSON(x, y, z, bbmin, bbmax))
 
-						batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n '
-						batch += buildOneBatchLine(imgName, split)
-						copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
+							batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n '
+							batch += buildOneBatchLine(imgName, split)
+							copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["imagePath"], split, city]), pathDict["renderImgSource"])
 
 
-						batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n --s ^\n '
-						batch += buildOneBatchLine(imgName, split, semantic = True)
-						copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["gtFinePath"], split, city]), pathDict["renderImgSource"])
+							batch += '%EXE_FOLDER%\synthetizen_compose.exe ^\n --ac ^\n --s ^\n '
+							batch += buildOneBatchLine(imgName, split, semantic = True)
+							copyRGBImageFromTo(imgName, ".."+"\\".join([pathDict["gtFinePath"], split, city]), pathDict["renderImgSource"])
 
-						imageNames.append("_".join([split, imgName]))
-						objectsChosen.append(objChosen)
-						print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
+							imageNames.append("_".join([split, imgName]))
+							objectsChosen.append(objChosen)
+							print("\tPartial time: {} seconds\n".format(time.time() - partial_time))
 
 					i += 1
 
@@ -877,7 +897,9 @@ def main():
 	writeBatch(params["batchPath"], batch)
 	writeImageNamesFile(params["outputPath"], objectsChosen, imageNames)
 
+	# other experimental object is commented here in order to use one alternatively instead of having it randomised
 	# "SL": ["traffic sign", "./resources/SpeedLimit.fbx"]
+
 
 
 if __name__ == '__main__':

@@ -279,13 +279,14 @@ def explore(fbx_carPath):
 
 
 def main(verbose = False):
-	fbx_carPath = "./resources/some_car.fbx"
+	fbx_carPath = "./resources/SpeedLimit.fbx"
 
 	# useFBXLibrary(fbx_carPath):
 	# readFBX(fbx_carPath)
 	scene = getScene(fbx_carPath)
-	getSizes(scene, verbose = verbose)
-	print pyassimp.helper.get_bounding_box(scene)
+	# getSizes(scene, verbose = verbose)
+	# print pyassimp.helper.get_bounding_box(scene)
+	print getMinMaxCoords(scene)
 
 
 
